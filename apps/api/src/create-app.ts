@@ -21,6 +21,7 @@ import {
 	validateAssetRestRequest,
 } from "./assets/asset-rest";
 import { RequestPrincipalService } from "./auth/request-principal.service";
+import { HOME_OPENAPI_SCHEMAS } from "./home/home.openapi";
 import { ContextLogger } from "./logging/context-logger";
 import { REST_BRIDGE_PATH } from "./trpc/openapi";
 import { createBaseTrpcContext } from "./trpc/trpc.context";
@@ -129,6 +130,9 @@ export async function createApp(): Promise<NestExpressApplication> {
 				schemas: {
 					...swaggerDocument.components?.schemas,
 					...(trpcDocument.components?.schemas as NonNullable<
+						typeof swaggerDocument.components
+					>["schemas"]),
+					...(HOME_OPENAPI_SCHEMAS as NonNullable<
 						typeof swaggerDocument.components
 					>["schemas"]),
 				},
