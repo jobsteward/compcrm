@@ -106,6 +106,34 @@ describe("reading a person comes from the same Context key", () => {
 	});
 });
 
+describe("optional Context research", () => {
+	it("restores company and person research when a key is configured", () => {
+		process.env.PERPLEXITY_API_KEY = "pplx-test";
+		process.env.BLOB_READ_WRITE_TOKEN = "blob-test";
+
+		const missing = capabilitiesFrom(null);
+		const configured = capabilitiesFrom("ctx-test");
+
+		for (const id of [CONTEXT_DEV, CONTEXT_DEV_PEOPLE]) {
+			expect(missing.find((capability) => capability.id === id)?.enabled).toBe(
+				false,
+			);
+			expect(
+				configured.find((capability) => capability.id === id)?.enabled,
+			).toBe(true);
+		}
+
+		for (const id of KEYS) {
+			expect(missing.find((capability) => capability.id === id)?.enabled).toBe(
+				true,
+			);
+			expect(
+				configured.find((capability) => capability.id === id)?.enabled,
+			).toBe(true);
+		}
+	});
+});
+
 describe("the unavailable result", () => {
 	it("says retrying will not help", () => {
 		const result = unavailable(CONTEXT_DEV_SOURCE);
