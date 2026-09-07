@@ -312,6 +312,9 @@
   "trustedDependencies": [
     "sharp",
   ],
+  "patchedDependencies": {
+    "@better-auth/oauth-provider@1.7.2": "patches/@better-auth%2Foauth-provider@1.7.2.patch",
+  },
   "packages": {
     "@agent-xmpp/core": ["@agent-xmpp/core@workspace:packages/agent-xmpp/core"],
 

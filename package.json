@@ -48,5 +48,8 @@
 		"apps/*",
 		"packages/*",
 		"packages/agent-xmpp/*"
-	]
+	],
+	"patchedDependencies": {
+		"@better-auth/oauth-provider@1.7.2": "patches/@better-auth%2Foauth-provider@1.7.2.patch"
+	}
 }
