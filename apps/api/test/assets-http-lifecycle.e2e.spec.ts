@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { scopedDb } from "@crm/db/tenant-scope";
 import request from "supertest";
 import { AssetWorkerService } from "../src/assets/asset-worker.service";
 import { AssetsHttpFixture } from "./assets-http.fixture";
+import { inAssetTenant } from "./assets-tenant.fixture";
 
 let fixture: AssetsHttpFixture;
 let app: AssetsHttpFixture["app"];
-let db: AssetsHttpFixture["db"];
 let userId: AssetsHttpFixture["userId"];
 let projectId: AssetsHttpFixture["projectId"];
 let otherProjectId: AssetsHttpFixture["otherProjectId"];
@@ -20,7 +21,6 @@ describe("Asset HTTP upload lifecycle", () => {
 		fixture = new AssetsHttpFixture();
 		await fixture.setup();
 		app = fixture.app;
-		db = fixture.db;
 		userId = fixture.userId;
 		projectId = fixture.projectId;
 		otherProjectId = fixture.otherProjectId;
@@ -60,9 +60,11 @@ describe("Asset HTTP upload lifecycle", () => {
 			.set("Idempotency-Key", randomUUID())
 			.send({})
 			.expect(200);
-		const stored = await db.assetUpload.findUniqueOrThrow({
-			where: { id: uploadId },
-		});
+		const stored = await inAssetTenant(() =>
+			scopedDb.assetUpload.findUniqueOrThrow({
+				where: { id: uploadId },
+			}),
+		);
 		objects.set(stored.temporaryKey, {
 			sizeBytes: 0,
 			etag: '"empty"',
@@ -78,10 +80,12 @@ describe("Asset HTTP upload lifecycle", () => {
 		const processed = await app.get(AssetWorkerService).process();
 		expect(processed.processed).toBeGreaterThan(0);
 		expect(
-			await db.assetStorageJob.findFirst({
-				where: { uploadId, operation: "FINALIZE_UPLOAD" },
-				select: { state: true, attempts: true, lastError: true },
-			}),
+			await inAssetTenant(() =>
+				scopedDb.assetStorageJob.findFirst({
+					where: { uploadId, operation: "FINALIZE_UPLOAD" },
+					select: { state: true, attempts: true, lastError: true },
+				}),
+			),
 		).toMatchObject({ state: "COMPLETE", lastError: null });
 		const state = await request(app.getHttpServer())
 			.get(confirmed.body.statusUrl)

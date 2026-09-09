@@ -52,6 +52,11 @@ const tenantScopedModels = new Set<Prisma.ModelName>([
 	"FormSubmission",
 	"WorkspaceProfile",
 	"SsoProvider",
+	"Artifact",
+	"AssetUpload",
+	"AssetEmailSource",
+	"AssetStorageJob",
+	"AssetApiRequest",
 ]);
 
 const activeTransactionStorage =

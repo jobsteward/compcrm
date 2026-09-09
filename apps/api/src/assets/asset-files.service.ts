@@ -1,4 +1,5 @@
 import type { Db } from "@crm/db";
+import { scopedTransaction } from "@crm/db/tenant-scope";
 import { findAssetProject, findProjectAsset } from "./asset-access.service";
 import type { AssetActor } from "./asset-actor";
 import { ASSETS } from "./asset-config";
@@ -17,7 +18,7 @@ export class AssetFiles {
 	) {}
 
 	async downloadAsset(actor: AssetActor, projectId: string, assetId: string) {
-		return this.db.$transaction(async (tx) => {
+		return scopedTransaction(this.db, async (tx) => {
 			await findAssetProject(tx, actor, projectId, true);
 			const asset = await findProjectAsset(tx, projectId, assetId, actor);
 			if (

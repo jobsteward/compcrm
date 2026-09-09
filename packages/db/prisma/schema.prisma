@@ -1378,6 +1378,8 @@ enum AssetJobState {
 }
 
 model Artifact {
+  organizationId       String       @default(dbgenerated("current_setting('app.current_organization_id'::text, true)"))
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   id                   String       @id @default(cuid())
   dealId               String
   deal                 Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
@@ -1402,10 +1404,13 @@ model Artifact {
   @@unique([storageBucket, storageKey])
   @@index([dealId, createdAt])
   @@index([dealId, status, createdAt, id])
+  @@index([organizationId])
   @@map("artifact")
 }
 
 model AssetUpload {
+  organizationId       String       @default(dbgenerated("current_setting('app.current_organization_id'::text, true)"))
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   id                    String            @id @default(cuid())
   projectId             String
   customerId            String
@@ -1443,10 +1448,13 @@ model AssetUpload {
   @@index([actorKey, reservationReleasedAt])
   @@index([projectId])
   @@index([status, expiresAt])
+  @@index([organizationId])
   @@map("assetUpload")
 }
 
 model AssetEmailSource {
+  organizationId String       @default(dbgenerated("current_setting('app.current_organization_id'::text, true)"))
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   id             String    @id @default(cuid())
   messageId      String
   attachmentId   String
@@ -1461,10 +1469,13 @@ model AssetEmailSource {
 
   @@unique([messageId, attachmentId])
   @@index([projectId])
+  @@index([organizationId])
   @@map("assetEmailSource")
 }
 
 model AssetStorageJob {
+  organizationId String       @default(dbgenerated("current_setting('app.current_organization_id'::text, true)"))
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   id            String            @id @default(cuid())
   operationKey  String            @unique
   operation     AssetJobOperation
@@ -1486,10 +1497,13 @@ model AssetStorageJob {
 
   @@index([state, nextAttemptAt, leaseUntil])
   @@index([projectId])
+  @@index([organizationId])
   @@map("assetStorageJob")
 }
 
 model AssetApiRequest {
+  organizationId String       @default(dbgenerated("current_setting('app.current_organization_id'::text, true)"))
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   id             String   @id @default(cuid())
   actorKey       String
   operation      String
@@ -1503,6 +1517,7 @@ model AssetApiRequest {
 
   @@unique([actorKey, operation, path, idempotencyKey])
   @@index([expiresAt])
+  @@index([organizationId])
   @@map("assetApiRequest")
 }
 
@@ -2130,6 +2145,11 @@ model Organization {
   agentRunEvents                 AgentRunEvent[]
   agentActions                   AgentAction[]
   agentAuditEvents               AgentAuditEvent[]
+  artifacts                      Artifact[]
+  assetUploads                   AssetUpload[]
+  assetEmailSources              AssetEmailSource[]
+  assetStorageJobs               AssetStorageJob[]
+  assetApiRequests               AssetApiRequest[]
   deals                          Deal[]
   dealContacts                   DealContact[]
   fieldDefinitions               FieldDefinition[]

@@ -5,15 +5,15 @@ import {
 	beforeEach,
 	describe,
 	expect,
-	it,
 } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { db } from "@crm/db";
+import { scopedDb as db, scopedTransaction } from "@crm/db/tenant-scope";
 import { AssetError } from "../src/assets/asset-error";
 import { enqueueProjectAssetPurge } from "../src/assets/asset-purge";
 import {
 	AssetsCoreFixture,
 	assertLocalTestDatabase,
+	assetTest as it,
 } from "./assets-core.fixture";
 
 let fixture: AssetsCoreFixture;
@@ -135,7 +135,7 @@ describe("asset deletion and stale work", () => {
 			randomUUID(),
 		);
 		storage.copyHook = async () => {
-			await db.$transaction(async (tx) => {
+			await scopedTransaction(async (tx) => {
 				await enqueueProjectAssetPurge(tx, projectId);
 				await tx.deal.delete({ where: { id: projectId } });
 			});

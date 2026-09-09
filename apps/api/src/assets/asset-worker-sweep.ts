@@ -1,17 +1,20 @@
 import type { Db } from "@crm/db";
+import { scopedTransaction } from "@crm/db/tenant-scope";
 import { ASSETS } from "./asset-config";
 import { enqueueAssetObjectDeletion } from "./asset-purge";
 
 export async function sweepExpiredAssetUploads(db: Db, signal: AbortSignal) {
 	if (signal.aborted) return;
-	const expired = await db.assetUpload.findMany({
-		where: { status: "PENDING", expiresAt: { lte: new Date() } },
-		take: ASSETS.worker.batchSize,
-		select: { id: true, projectId: true },
-	});
+	const expired = await scopedTransaction(db, (tx) =>
+		tx.assetUpload.findMany({
+			where: { status: "PENDING", expiresAt: { lte: new Date() } },
+			take: ASSETS.worker.batchSize,
+			select: { id: true, projectId: true },
+		}),
+	);
 	for (const candidate of expired) {
 		if (signal.aborted) break;
-		await db.$transaction(async (tx) => {
+		await scopedTransaction(db, async (tx) => {
 			await tx.$queryRaw`SELECT "id" FROM "deal" WHERE "id" = ${candidate.projectId} FOR UPDATE`;
 			const upload = await tx.assetUpload.findUnique({
 				where: { id: candidate.id },
@@ -31,5 +34,9 @@ export async function sweepExpiredAssetUploads(db: Db, signal: AbortSignal) {
 		});
 	}
 	if (signal.aborted) return;
-	await db.$executeRaw`DELETE FROM "assetApiRequest" WHERE "id" IN (SELECT "id" FROM "assetApiRequest" WHERE "expiresAt" <= (NOW() AT TIME ZONE 'UTC') LIMIT ${ASSETS.worker.batchSize})`;
+	await scopedTransaction(
+		db,
+		(tx) =>
+			tx.$executeRaw`DELETE FROM "assetApiRequest" WHERE "id" IN (SELECT "id" FROM "assetApiRequest" WHERE "expiresAt" <= (NOW() AT TIME ZONE 'UTC') LIMIT ${ASSETS.worker.batchSize})`,
+	);
 }

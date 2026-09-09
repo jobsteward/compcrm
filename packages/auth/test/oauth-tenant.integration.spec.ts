@@ -17,6 +17,7 @@ const {
 } = await import("../src/index");
 
 beforeAll(async () => {
+	await db.jwks.deleteMany();
 	await ensureOfficialOAuthClient();
 	await db.user.create({
 		data: {
@@ -61,6 +62,7 @@ beforeAll(async () => {
 afterAll(async () => {
 	await db.user.delete({ where: { id: userId } });
 	await db.organization.delete({ where: { id: organizationId } });
+	await db.jwks.deleteMany();
 });
 
 describe("OAuth tenant binding", () => {

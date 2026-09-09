@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { db } from "@crm/db";
+import { db as rawDb } from "@crm/db";
+import { scopedDb as db } from "@crm/db/tenant-scope";
 import { AssetWorkerService } from "../src/assets/asset-worker.service";
 import {
 	type CreateUploadInput,
@@ -8,14 +9,22 @@ import {
 } from "../src/assets/assets.contracts";
 import { type AssetActor, AssetsService } from "../src/assets/assets.service";
 import { MemoryStorage } from "./assets-core.storage.fixture";
+import {
+	addAssetTestMember,
+	assetTest,
+	inAssetTenant,
+	removeAssetTestMember,
+} from "./assets-tenant.fixture";
+
+export { assetTest };
 
 export class AssetsCoreFixture {
 	readonly run = `assets-core-${randomUUID()}`;
 	readonly projectIds: string[] = [];
 	readonly threadIds: string[] = [];
 	readonly storage = new MemoryStorage();
-	readonly service = new AssetsService(db, this.storage);
-	readonly worker = new AssetWorkerService(db, this.storage);
+	readonly service = new AssetsService(rawDb, this.storage);
+	readonly worker = new AssetWorkerService(rawDb, this.storage);
 	actor!: AssetActor;
 	userId!: string;
 	companyId!: string;
@@ -23,7 +32,7 @@ export class AssetsCoreFixture {
 	otherProjectId!: string;
 
 	async setup() {
-		const user = await db.user.create({
+		const user = await rawDb.user.create({
 			data: {
 				id: randomUUID(),
 				name: this.run,
@@ -32,49 +41,49 @@ export class AssetsCoreFixture {
 		});
 		this.userId = user.id;
 		this.actor = { type: "USER", userId: this.userId };
-		const company = await db.company.create({
-			data: { name: this.run, domain: `${randomUUID()}.assets.test` },
+		await addAssetTestMember(this.userId, randomUUID());
+		await inAssetTenant(async () => {
+			const company = await db.company.create({
+				data: { name: this.run, domain: `${randomUUID()}.assets.test` },
+			});
+			this.companyId = company.id;
+			const project = await db.deal.create({
+				data: { name: "Kitchen", companyId: company.id, ownerId: this.userId },
+			});
+			const other = await db.deal.create({
+				data: { name: "Bathroom", companyId: company.id, ownerId: this.userId },
+			});
+			this.projectId = project.id;
+			this.otherProjectId = other.id;
 		});
-		this.companyId = company.id;
-		const project = await db.deal.create({
-			data: {
-				name: "Kitchen",
-				companyId: this.companyId,
-				ownerId: this.userId,
-			},
-		});
-		this.projectId = project.id;
-		const other = await db.deal.create({
-			data: {
-				name: "Bathroom",
-				companyId: this.companyId,
-				ownerId: this.userId,
-			},
-		});
-		this.otherProjectId = other.id;
 		this.projectIds.push(this.projectId, this.otherProjectId);
 	}
 
 	async cleanup() {
 		if (!this.projectIds.length) return;
-		await db.assetStorageJob.deleteMany({
-			where: { projectId: { in: this.projectIds } },
+		await inAssetTenant(async () => {
+			await db.assetStorageJob.deleteMany({
+				where: { projectId: { in: this.projectIds } },
+			});
+			await db.assetEmailSource.deleteMany({
+				where: { projectId: { in: this.projectIds } },
+			});
+			await db.assetUpload.deleteMany({
+				where: { projectId: { in: this.projectIds } },
+			});
+			await db.assetApiRequest.deleteMany({
+				where: {
+					actorKey: { in: [`user:${this.userId}`, `mailbox:${this.userId}`] },
+				},
+			});
+			await db.deal.deleteMany({ where: { id: { in: this.projectIds } } });
+			await db.emailThread.deleteMany({
+				where: { id: { in: this.threadIds } },
+			});
+			await db.company.delete({ where: { id: this.companyId } });
 		});
-		await db.assetEmailSource.deleteMany({
-			where: { projectId: { in: this.projectIds } },
-		});
-		await db.assetUpload.deleteMany({
-			where: { projectId: { in: this.projectIds } },
-		});
-		await db.assetApiRequest.deleteMany({
-			where: {
-				actorKey: { in: [`user:${this.userId}`, `mailbox:${this.userId}`] },
-			},
-		});
-		await db.deal.deleteMany({ where: { id: { in: this.projectIds } } });
-		await db.emailThread.deleteMany({ where: { id: { in: this.threadIds } } });
-		await db.company.delete({ where: { id: this.companyId } });
-		await db.user.delete({ where: { id: this.userId } });
+		await removeAssetTestMember(this.userId);
+		await rawDb.user.delete({ where: { id: this.userId } });
 	}
 
 	metadata(input: Partial<CreateUploadInput> = {}) {
@@ -159,7 +168,7 @@ export class AssetsCoreFixture {
 }
 
 export async function assertLocalTestDatabase() {
-	const url = new URL(process.env.DATABASE_URL ?? "");
+	const url = new URL(process.env.TEST_DATABASE_URL ?? "");
 	if (
 		!["localhost", "127.0.0.1"].includes(url.hostname) ||
 		!url.pathname.endsWith("_test")

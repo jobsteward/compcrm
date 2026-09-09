@@ -1,14 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { scopedDb } from "@crm/db/tenant-scope";
 import request from "supertest";
 import { AssetError } from "../src/assets/asset-error";
 import { AssetStorageService } from "../src/assets/asset-storage.service";
 import { AssetsService } from "../src/assets/assets.service";
 import { AssetsHttpFixture } from "./assets-http.fixture";
+import { inAssetTenant } from "./assets-tenant.fixture";
 
 let fixture: AssetsHttpFixture;
 let app: AssetsHttpFixture["app"];
-let db: AssetsHttpFixture["db"];
 let userId: AssetsHttpFixture["userId"];
 let projectId: AssetsHttpFixture["projectId"];
 let base: AssetsHttpFixture["base"];
@@ -19,7 +20,6 @@ describe("Asset HTTP error handling", () => {
 		fixture = new AssetsHttpFixture();
 		await fixture.setup();
 		app = fixture.app;
-		db = fixture.db;
 		userId = fixture.userId;
 		projectId = fixture.projectId;
 		base = fixture.base;
@@ -31,7 +31,9 @@ describe("Asset HTTP error handling", () => {
 	});
 
 	it("returns 413 and its exact byte limit without creating an upload", async () => {
-		const before = await db.assetUpload.count({ where: { projectId } });
+		const before = await inAssetTenant(() =>
+			scopedDb.assetUpload.count({ where: { projectId } }),
+		);
 		const response = await request(app.getHttpServer())
 			.post(`${base}/asset-uploads`)
 			.set("x-asset-test-user", userId)
@@ -43,7 +45,11 @@ describe("Asset HTTP error handling", () => {
 			retryable: false,
 			details: { maxBytes: 5363466240 },
 		});
-		expect(await db.assetUpload.count({ where: { projectId } })).toBe(before);
+		expect(
+			await inAssetTenant(() =>
+				scopedDb.assetUpload.count({ where: { projectId } }),
+			),
+		).toBe(before);
 	});
 
 	it("returns storage and capacity errors without exposing internal data", async () => {
