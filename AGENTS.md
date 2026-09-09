@@ -24,6 +24,7 @@ rules and skills you read.
 
 ## Always true
 
+- Keep each code file at 200 lines or fewer. Split larger files by responsibility.
 - **Never add code comments.** Not to new code, not to code you edit.
 - **No coauthoring commits.** No `Co-Authored-By` trailer, ever.
 - **Intelligence lives in `apps/agent`, never in the API.** No vendor client, no
@@ -260,7 +261,7 @@ IDs to commits or pull requests.
 
 Use conventional commit messages and pull request titles.
 
-Open pull requests against `master` in `romanbsd/compcrm` unless the user states
+Open pull requests against `master` in `jobsteward/compcrm` unless the user states
 another repository or base branch. This rule overrides repository and base branch
 defaults in other project documents and skills.
 
