@@ -212,6 +212,10 @@ export const kaneoSchema = defineSchema([
 		{
 			id: t.text("id", "id").pk(),
 			name: t.text("name", "name").notNull(),
+			memberCount: t
+				.integer("memberCount", "member_count")
+				.notNull()
+				.default(0),
 			workspaceId: t
 				.text("workspaceId", "workspace_id")
 				.notNull()
@@ -235,6 +239,7 @@ export const kaneoSchema = defineSchema([
 				.text("userId", "user_id")
 				.notNull()
 				.ref("user", { onDelete: "cascade" }),
+			membershipKey: t.text("membershipKey", "membership_key").unique(),
 			createdAt: t.timestamp("createdAt", "created_at"),
 		},
 		{
