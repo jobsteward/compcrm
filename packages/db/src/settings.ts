@@ -12,10 +12,7 @@ export const DEFAULT_AGENT_MODEL = {
 	contextWindowTokens: 1_000_000,
 } as const;
 
-export function defaultAgentModelResult(): {
-	model: string;
-	modelContextWindowTokens: number;
-} {
+export function defaultAgentModelResult() {
 	return {
 		model: DEFAULT_AGENT_MODEL.id,
 		modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
