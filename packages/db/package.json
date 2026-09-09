@@ -58,6 +58,7 @@
 	},
 	"devDependencies": {
 		"@crm/typescript-config": "workspace:*",
+		"@types/bun": "^1.4.2",
 		"@types/node": "^26.5.0",
 		"pg": "^8.23.0",
 		"prisma": "^7.10.0",
