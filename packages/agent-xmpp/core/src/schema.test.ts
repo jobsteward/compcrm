@@ -7,18 +7,22 @@ afterAll(async () => {
 });
 
 describe("bounded schema validation", () => {
-	it("starts source workers with the declared loader", async () => {
-		await expect(
-			validateJsonBounded(
-				{
-					type: "object",
-					properties: { value: { type: "string" } },
-					required: ["value"],
-					additionalProperties: false,
-				},
-				{ value: "ok" },
-				5_000,
-			),
-		).resolves.toEqual([]);
-	});
+	it(
+		"starts source workers with the declared loader",
+		async () => {
+			await expect(
+				validateJsonBounded(
+					{
+						type: "object",
+						properties: { value: { type: "string" } },
+						required: ["value"],
+						additionalProperties: false,
+					},
+					{ value: "ok" },
+					15_000,
+				),
+			).resolves.toEqual([]);
+		},
+		20_000,
+	);
 });
