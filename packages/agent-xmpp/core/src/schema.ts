@@ -389,9 +389,11 @@ function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 	);
 	worker.unref();
 	const slot: SchemaWorkerSlot = { worker, consecutiveFailures };
-	worker.on("message", (response: WorkerResponse) =>
-		settleWorker(slot, response),
-	);
+	worker.on("online", () => console.error("[schema] validator worker online"));
+	worker.on("message", (response: WorkerResponse) => {
+		console.error("[schema] validator worker message", response.id);
+		settleWorker(slot, response);
+	});
 	worker.on("error", (error) => {
 		console.error("[schema] validator worker error:", error);
 		replaceWorker(
@@ -400,8 +402,8 @@ function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 		);
 	});
 	worker.on("exit", (code) => {
+		console.error(`[schema] validator worker exited with code ${code}`);
 		if (schemaWorkers.includes(slot) && code !== 0) {
-			console.error(`[schema] validator worker exited with code ${code}`);
 			replaceWorker(
 				slot,
 				new Error(`schema validator worker exited with code ${code}`),
