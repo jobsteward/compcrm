@@ -386,9 +386,6 @@ function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 			sourceMode ? "./schema-worker.ts" : "./schema-worker.js",
 			import.meta.url,
 		),
-		{
-			execArgv: sourceMode ? ["--import", "tsx"] : undefined,
-		},
 	);
 	worker.unref();
 	const slot: SchemaWorkerSlot = { worker, consecutiveFailures };
