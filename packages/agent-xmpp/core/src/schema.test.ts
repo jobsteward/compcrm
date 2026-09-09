@@ -17,6 +17,7 @@ describe("bounded schema validation", () => {
 					additionalProperties: false,
 				},
 				{ value: "ok" },
+				5_000,
 			),
 		).resolves.toEqual([]);
 	});
