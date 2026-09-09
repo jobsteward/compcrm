@@ -392,14 +392,16 @@ function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 	worker.on("message", (response: WorkerResponse) =>
 		settleWorker(slot, response),
 	);
-	worker.on("error", (error) =>
+	worker.on("error", (error) => {
+		console.error("[schema] validator worker error:", error);
 		replaceWorker(
 			slot,
 			error instanceof Error ? error : new Error(String(error)),
-		),
-	);
+		);
+	});
 	worker.on("exit", (code) => {
 		if (schemaWorkers.includes(slot) && code !== 0) {
+			console.error(`[schema] validator worker exited with code ${code}`);
 			replaceWorker(
 				slot,
 				new Error(`schema validator worker exited with code ${code}`),

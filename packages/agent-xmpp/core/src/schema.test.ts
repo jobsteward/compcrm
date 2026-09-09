@@ -8,8 +8,8 @@ afterAll(async () => {
 
 describe("bounded schema validation", () => {
 	it("starts source workers with the declared loader", async () => {
-		await expect(
-			validateJsonBounded(
+		try {
+			const errors = await validateJsonBounded(
 				{
 					type: "object",
 					properties: { value: { type: "string" } },
@@ -17,7 +17,11 @@ describe("bounded schema validation", () => {
 					additionalProperties: false,
 				},
 				{ value: "ok" },
-			),
-		).resolves.toEqual([]);
+			);
+			expect(errors).toEqual([]);
+		} catch (error) {
+			console.error("[schema.test] validation rejected:", error);
+			throw error;
+		}
 	});
 });
