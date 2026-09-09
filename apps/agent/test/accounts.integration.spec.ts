@@ -1,8 +1,12 @@
 import { describe, expect } from "bun:test";
 import { ActivityType, DealStage, EmailDirection } from "@crm/db";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterAll,
+	tenantBeforeAll,
+	tenantTest,
+} from "@crm/db/test-support";
 import { readCompanyHistory, readDealHistory } from "../agent/lib/accounts";
-import { tenantAfterAll, tenantBeforeAll, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "accounts-spec";
 const domain = `fernhill-${suffix}.test`;

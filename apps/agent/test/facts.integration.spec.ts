@@ -1,13 +1,17 @@
 import { describe, expect } from "bun:test";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterAll,
+	tenantBeforeAll,
+	tenantTest,
+} from "@crm/db/test-support";
 import type { Evidence } from "../agent/lib/evidence";
 import {
 	type RecordFactInput,
 	recordFact as recordFactInTenant,
 	writeBrief as writeBriefInTenant,
 } from "../agent/lib/facts";
-import { tenantAfterAll, tenantBeforeAll, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "facts-spec";
 const organizationId = "workspace";

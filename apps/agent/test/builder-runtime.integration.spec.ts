@@ -1,5 +1,10 @@
 import { describe, expect } from "bun:test";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterAll,
+	tenantBeforeAll,
+	tenantTest,
+} from "@crm/db/test-support";
 import { persistBuilderInputRequest } from "../agent/lib/builder-input";
 import {
 	saveBuilderDraft as saveBuilderDraftForTenant,
@@ -7,7 +12,6 @@ import {
 } from "../agent/lib/builder-runtime";
 import { setBuilderConversationTitle } from "../agent/lib/conversation-title";
 import { builderToken } from "../agent/lib/custom-agent-dispatch";
-import { tenantAfterAll, tenantBeforeAll, tenantTest } from "@crm/db/test-support";
 
 const suffix = crypto.randomUUID();
 const organizationId = "workspace";

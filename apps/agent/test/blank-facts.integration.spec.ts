@@ -1,8 +1,12 @@
 import { describe, expect } from "bun:test";
 import { FactBand, FactStatus } from "@crm/db";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterAll,
+	tenantBeforeEach,
+	tenantTest,
+} from "@crm/db/test-support";
 import { sweepBlankFacts } from "../agent/lib/blank-facts";
-import { tenantAfterAll, tenantBeforeEach, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "blank-facts-spec";
 const email = `blank.subject.${suffix}@example.test`;

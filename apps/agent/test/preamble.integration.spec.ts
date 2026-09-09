@@ -3,6 +3,11 @@ import { DealStage } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
 import {
+	tenantAfterAll,
+	tenantBeforeAll,
+	tenantTest,
+} from "@crm/db/test-support";
+import {
 	companyPreamble as companyPreambleWithoutTenant,
 	composeClosing as composeClosingWithoutTenant,
 	contactPreamble as contactPreambleWithoutTenant,
@@ -12,7 +17,6 @@ import {
 	workspacePreamble as workspacePreambleWithoutTenant,
 } from "../agent/lib/preamble";
 import { identity as identityWithoutTenant } from "../agent/lib/workspace";
-import { tenantAfterAll, tenantBeforeAll, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "preamble-spec";
 const domain = `fernhill-${suffix}.test`;

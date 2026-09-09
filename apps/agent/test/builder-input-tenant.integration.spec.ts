@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { tenantTransaction } from "@crm/db/tenant-scope";
 import { persistBuilderInputRequest } from "../agent/lib/builder-input";
 import { builderToken } from "../agent/lib/custom-agent-dispatch";
-import { tenantTransaction } from "@crm/db/tenant-scope";
 
 const suffix = crypto.randomUUID();
 const ORG_A = `builder-input-tenant-a-${suffix}`;

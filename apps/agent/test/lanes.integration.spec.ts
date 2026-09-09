@@ -1,8 +1,12 @@
 import { describe, expect } from "bun:test";
 import { DIRECT_KINDS, isDirectKind, PRIORITY } from "@crm/db/agent-tasks";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterEach,
+	tenantBeforeEach,
+	tenantTest,
+} from "@crm/db/test-support";
 import { claimDue } from "../agent/lib/tasks";
-import { tenantAfterEach, tenantBeforeEach, tenantTest } from "@crm/db/test-support";
 
 const REASON = "lane-test";
 const TEST_PRIORITY_OFFSET = 1_000_000;

@@ -6,7 +6,6 @@ import {
 } from "@crm/db/settings";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
-import { selectedModel as selectedModelWithoutTenant } from "../agent/lib/model";
 import {
 	tenantAfterAll,
 	tenantAfterEach,
@@ -14,6 +13,7 @@ import {
 	tenantBeforeEach,
 	tenantTest,
 } from "@crm/db/test-support";
+import { selectedModel as selectedModelWithoutTenant } from "../agent/lib/model";
 
 const testPrefix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const organizationId = `model-test-org-${testPrefix}`;

@@ -3,14 +3,14 @@ import { EnrichmentStatus, db as rawDb } from "@crm/db";
 import { readContextDevKey, writeContextDevKey } from "@crm/db/settings";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
-import { runBrand } from "../agent/lib/brand";
-import { settle as settleWithoutTenant } from "../agent/lib/enrichment";
 import {
 	tenantAfterAll,
 	tenantAfterEach,
 	tenantBeforeAll,
 	tenantTest,
 } from "@crm/db/test-support";
+import { runBrand } from "../agent/lib/brand";
+import { settle as settleWithoutTenant } from "../agent/lib/enrichment";
 
 /**
  * An install with no Context key still creates companies, and a `brand` task

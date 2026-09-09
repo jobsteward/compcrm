@@ -1,6 +1,12 @@
 import { describe, expect } from "bun:test";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterAll,
+	tenantAfterEach,
+	tenantBeforeAll,
+	tenantTest,
+} from "@crm/db/test-support";
 import type { UserContent } from "ai";
 import type { ChannelFrom, ChannelSendOptions, Session } from "eve/channels";
 import { z } from "zod";
@@ -21,12 +27,6 @@ import {
 	runResultOf,
 	stageRunResult as stageRunResultInTenant,
 } from "../agent/lib/run-runtime";
-import {
-	tenantAfterAll,
-	tenantAfterEach,
-	tenantBeforeAll,
-	tenantTest,
-} from "@crm/db/test-support";
 
 const attachmentBytes = z.object({ data: z.instanceof(Uint8Array) });
 

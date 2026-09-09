@@ -3,8 +3,12 @@ import { EnrichmentStatus, db as rawDb } from "@crm/db";
 import { MAX_ATTEMPTS, RETIRED_OUTCOME } from "@crm/db/agent-tasks";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterEach,
+	tenantBeforeEach,
+	tenantTest,
+} from "@crm/db/test-support";
 import { reconcileStaleTasks } from "../agent/lib/stale-tasks";
-import { tenantAfterEach, tenantBeforeEach, tenantTest } from "@crm/db/test-support";
 
 const kind = "recheck";
 

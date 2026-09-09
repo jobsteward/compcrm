@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
-import audit from "../agent/hooks/audit";
 import { tenantTransaction } from "@crm/db/tenant-scope";
+import audit from "../agent/hooks/audit";
 
 const suffix = crypto.randomUUID();
 const ORG_A = `audit-tenant-org-a-${suffix}`;

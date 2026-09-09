@@ -1,8 +1,12 @@
 import { describe, expect } from "bun:test";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterEach,
+	tenantBeforeEach,
+	tenantTest,
+} from "@crm/db/test-support";
 import { joinSlackChannel } from "../agent/lib/slack-membership";
-import { tenantAfterEach, tenantBeforeEach, tenantTest } from "@crm/db/test-support";
 
 const USER_ID = "slack-join-spec-user";
 const ACCOUNT_ID = "slack-join-spec-account";

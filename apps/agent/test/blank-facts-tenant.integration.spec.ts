@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db, FactBand, FactStatus } from "@crm/db";
-import { sweepBlankFacts } from "../agent/lib/blank-facts";
 import { tenantTransaction } from "@crm/db/tenant-scope";
+import { sweepBlankFacts } from "../agent/lib/blank-facts";
 
 const suffix = crypto.randomUUID();
 const ORG_A = `blank-facts-tenant-a-${suffix}`;

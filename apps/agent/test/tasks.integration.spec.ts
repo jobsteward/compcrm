@@ -3,12 +3,16 @@ import { DIRECT_KINDS, MAX_ATTEMPTS } from "@crm/db/agent-tasks";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
 import {
+	tenantAfterEach,
+	tenantBeforeEach,
+	tenantTest,
+} from "@crm/db/test-support";
+import {
 	claimDue,
 	completeTask,
 	retireExhausted,
 	scheduleTask,
 } from "../agent/lib/tasks";
-import { tenantAfterEach, tenantBeforeEach, tenantTest } from "@crm/db/test-support";
 
 const kind = "test-lease";
 const organizationId = "workspace";

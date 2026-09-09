@@ -3,10 +3,14 @@ import { EnrichmentStatus } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb as db } from "@crm/db/tenant-scope";
 import {
+	tenantAfterEach,
+	tenantBeforeEach,
+	tenantTest,
+} from "@crm/db/test-support";
+import {
 	markRunning as markRunningWithoutTenant,
 	settle as settleWithoutTenant,
 } from "../agent/lib/enrichment";
-import { tenantAfterEach, tenantBeforeEach, tenantTest } from "@crm/db/test-support";
 
 const domain = "lifecycle.example.test";
 const organizationId = "workspace";

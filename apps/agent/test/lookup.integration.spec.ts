@@ -1,8 +1,12 @@
 import { describe, expect } from "bun:test";
 import { DealStage } from "@crm/db";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterAll,
+	tenantBeforeAll,
+	tenantTest,
+} from "@crm/db/test-support";
 import { listDeals, searchCrm } from "../agent/lib/lookup";
-import { tenantAfterAll, tenantBeforeAll, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "lookup-spec";
 const domain = `northwind-${suffix}.test`;

@@ -1,8 +1,12 @@
 import { describe, expect } from "bun:test";
 import { EnrichmentStatus } from "@crm/db";
 import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterEach,
+	tenantBeforeEach,
+	tenantTest,
+} from "@crm/db/test-support";
 import { closeTask, taskToken } from "../agent/channels/crm";
-import { tenantAfterEach, tenantBeforeEach, tenantTest } from "@crm/db/test-support";
 
 const kind = "identify";
 const email = `close-task-${crypto.randomUUID()}@example.test`;

@@ -2,11 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { createTenantRows } from "@crm/db/test-support";
 import {
 	slackAccessToken,
 	slackUserToken,
 } from "../agent/lib/slack-connection";
-import { createTenantRows } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? crypto.randomUUID();
 const organizationA = `agent-slack-a-${suffix}`;
