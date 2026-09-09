@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { SendFn } from "eve/channels";
+import type { ChannelFrom, Session } from "eve/channels";
 
 import handleCrmRequest from "../exports/handle_crm_request";
 import { ExportCancelledError, ExportToolValidationError } from "./errors";
@@ -113,7 +113,7 @@ describe("export tools", () => {
 			collectAgentResult(
 				{
 					id: "ses_1",
-					cancel: async () => ({ status: "accepted" }),
+					cancel: async () => ({ sessionId: "ses_1", status: "accepted" }),
 					getEventStream: async () => stream,
 				},
 				handleCrmRequest.outputSchema,
@@ -128,21 +128,29 @@ describe("export tools", () => {
 	it("cancels when the request aborts while Eve accepts the send", async () => {
 		const controller = new AbortController();
 		let cancellations = 0;
-		const send: SendFn = async () => {
-			controller.abort();
-			return {
-				id: "ses_1",
-				continuationToken: "xmpp:req_1",
-				cancel: async () => {
-					cancellations++;
-					return { status: "accepted" };
-				},
-				getEventStream: async () => new ReadableStream(),
-				getStreamTailIndex: async () => -1,
-			};
-		};
+		const session = {
+			id: "ses_1",
+			cancel: async () => {
+				cancellations++;
+				return { sessionId: "ses_1", status: "accepted" };
+			},
+			getEventStream: async () => new ReadableStream(),
+			getStreamTailIndex: async () => -1,
+		} as Session;
+
+		const from: ChannelFrom = () => ({
+			send: async () => {
+				controller.abort();
+				return session;
+			},
+			respond: async () => session,
+			cancel: async () => ({ sessionId: "ses_1", status: "accepted" }),
+			compact: async () => ({ sessionId: "ses_1", status: "accepted" }),
+			clear: async () => ({ sessionId: "ses_1", status: "accepted" }),
+			reset: async () => ({ status: "no_active_session" }),
+		});
 		const run = createEveExportSend(
-			send,
+			from,
 			{ requestId: "req_1", operation: "ping" },
 			controller.signal,
 		);
@@ -163,7 +171,7 @@ describe("export tools", () => {
 		await expect(
 			collectAgentResult({
 				id: "ses_1",
-				cancel: async () => ({ status: "accepted" }),
+				cancel: async () => ({ sessionId: "ses_1", status: "accepted" }),
 				getEventStream: async () => stream,
 			}),
 		).rejects.toBeInstanceOf(ExportCancelledError);

@@ -131,7 +131,7 @@ export default defineChannel({
 			);
 		}),
 
-		POST("/internal/crm/dispatch", async (request, { send, waitUntil }) => {
+		POST("/internal/crm/dispatch", async (request, { from, waitUntil }) => {
 			if (!authorised(request)) {
 				return new Response("Unauthorized", { status: 401 });
 			}
@@ -140,12 +140,11 @@ export default defineChannel({
 				(async () => {
 					await reconcileStaleTasks();
 					await drainAll((task) =>
-						send(brief(task), {
+						from(taskToken(task.id)).send(brief(task), {
 							auth: taskAuth(task),
-							continuationToken: taskToken(task.id),
 						}),
 					);
-					await drainAgentRuns(send);
+					await drainAgentRuns(from);
 				})(),
 			);
 
@@ -154,29 +153,29 @@ export default defineChannel({
 
 		POST(
 			"/internal/crm/builder-dispatch",
-			async (request, { send, waitUntil }) => {
+			async (request, { from, waitUntil }) => {
 				if (!authorised(request)) {
 					return new Response("Unauthorized", { status: 401 });
 				}
 
-				waitUntil(drainBuilder(send));
+				waitUntil(drainBuilder(from));
 				return new Response(null, { status: 202 });
 			},
 		),
 
 		POST(
 			"/internal/crm/agent-dispatch",
-			async (request, { send, waitUntil }) => {
+			async (request, { from, waitUntil }) => {
 				if (!authorised(request)) {
 					return new Response("Unauthorized", { status: 401 });
 				}
 
-				waitUntil(drainAgentRuns(send));
+				waitUntil(drainAgentRuns(from));
 				return new Response(null, { status: 202 });
 			},
 		),
 
-		POST("/internal/crm/cancel-run", async (request, { cancel }) => {
+		POST("/internal/crm/cancel-run", async (request, { from }) => {
 			if (!authorised(request)) {
 				return new Response("Unauthorized", { status: 401 });
 			}
@@ -188,9 +187,7 @@ export default defineChannel({
 				return Response.json({ error: "No run id was sent." }, { status: 400 });
 			}
 
-			return Response.json(
-				await cancel({ continuationToken: runToken(runId) }),
-			);
+			return Response.json(await from(runToken(runId)).cancel());
 		}),
 
 		POST("/internal/crm/slack/create-channel", async (request) => {
@@ -243,13 +240,13 @@ export default defineChannel({
 		async "input.requested"(data, channel, ctx) {
 			await persistBuilderInputRequest(
 				data,
-				channel.continuationToken,
+				channel.continuation?.token,
 				attribute(ctx, "conversationId"),
 			);
 		},
 
 		async "message.completed"(data, channel) {
-			const conversationId = builderIdFromToken(channel.continuationToken);
+			const conversationId = builderIdFromToken(channel.continuation?.token);
 			if (!conversationId || !data.message?.trim()) return;
 
 			await import("@crm/db").then(({ db }) =>
@@ -265,9 +262,9 @@ export default defineChannel({
 		},
 
 		async "session.waiting"(_data, channel) {
-			if (await closeTask(channel.continuationToken, "ran")) return;
+			if (await closeTask(channel.continuation?.token, "ran")) return;
 
-			const conversationId = builderIdFromToken(channel.continuationToken);
+			const conversationId = builderIdFromToken(channel.continuation?.token);
 			if (!conversationId) return;
 
 			await import("@crm/db").then(({ db }) =>
@@ -279,7 +276,7 @@ export default defineChannel({
 		},
 
 		async "turn.failed"(data, channel) {
-			const taskId = taskFromToken(channel.continuationToken);
+			const taskId = taskFromToken(channel.continuation?.token);
 			const reason =
 				eveTurnFailure.parse(data).message ?? "The agent turn failed.";
 
@@ -289,7 +286,7 @@ export default defineChannel({
 				return;
 			}
 
-			const conversationId = builderIdFromToken(channel.continuationToken);
+			const conversationId = builderIdFromToken(channel.continuation?.token);
 			if (conversationId) {
 				const { db } = await import("@crm/db");
 				await db.agentConversation.updateMany({
@@ -302,14 +299,14 @@ export default defineChannel({
 				return;
 			}
 
-			const runId = runIdFromToken(channel.continuationToken);
+			const runId = runIdFromToken(channel.continuation?.token);
 			if (runId) await failRun(runId, "TURN_FAILED", reason);
 		},
 
 		async "session.completed"(_data, channel) {
-			if (await closeTask(channel.continuationToken, "ran")) return;
+			if (await closeTask(channel.continuation?.token, "ran")) return;
 
-			const conversationId = builderIdFromToken(channel.continuationToken);
+			const conversationId = builderIdFromToken(channel.continuation?.token);
 			if (conversationId) {
 				const { db } = await import("@crm/db");
 				await db.agentConversation.updateMany({
@@ -319,7 +316,7 @@ export default defineChannel({
 				return;
 			}
 
-			const runId = runIdFromToken(channel.continuationToken);
+			const runId = runIdFromToken(channel.continuation?.token);
 			if (!runId) return;
 
 			const { db } = await import("@crm/db");
@@ -346,7 +343,7 @@ export default defineChannel({
 		async "turn.cancelled"(_data, channel) {
 			if (
 				await closeTask(
-					channel.continuationToken,
+					channel.continuation?.token,
 					"stopped",
 					EnrichmentStatus.SKIPPED,
 				)
@@ -354,7 +351,7 @@ export default defineChannel({
 				return;
 			}
 
-			const conversationId = builderIdFromToken(channel.continuationToken);
+			const conversationId = builderIdFromToken(channel.continuation?.token);
 			if (conversationId) {
 				const { db } = await import("@crm/db");
 				await db.agentConversation.updateMany({
@@ -367,7 +364,7 @@ export default defineChannel({
 				return;
 			}
 
-			const runId = runIdFromToken(channel.continuationToken);
+			const runId = runIdFromToken(channel.continuation?.token);
 			if (runId) {
 				await cancelRun(
 					runId,
@@ -378,7 +375,7 @@ export default defineChannel({
 		},
 
 		async "session.failed"(data, channel) {
-			const conversationId = builderIdFromToken(channel.continuationToken);
+			const conversationId = builderIdFromToken(channel.continuation?.token);
 			if (conversationId) {
 				const { db } = await import("@crm/db");
 				await db.agentConversation.updateMany({
@@ -393,29 +390,28 @@ export default defineChannel({
 				return;
 			}
 
-			const runId = runIdFromToken(channel.continuationToken);
+			const runId = runIdFromToken(channel.continuation?.token);
 			if (runId) await failRun(runId, data.code, data.message);
 		},
 	},
 
-	async receive(input, { send }) {
+	async receive(input, { from }) {
 		const target = receiveTarget.parse(input.target);
 		if (target.builderSubmissionId) {
 			assertInternalDispatchAuth(input.auth);
-			return dispatchBuilderSubmission(target.builderSubmissionId, send);
+			return dispatchBuilderSubmission(target.builderSubmissionId, from);
 		}
 
 		if (target.runId) {
 			assertInternalDispatchAuth(input.auth);
-			return dispatchAgentRun(target.runId, send);
+			return dispatchAgentRun(target.runId, from);
 		}
 
-		return send(input.message, {
-			auth: input.auth,
-			continuationToken: target.taskId
+		return from(
+			target.taskId
 				? taskToken(target.taskId)
 				: `crm:adhoc:${crypto.randomUUID()}`,
-		});
+		).send(input.message, { auth: input.auth });
 	},
 });
 

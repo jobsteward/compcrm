@@ -1,7 +1,7 @@
-diff --git a/dist/authorize-BmTe2VYG.mjs b/dist/authorize-BmTe2VYG.mjs
-index 42c943dd45aa3d297a14edcc056a14e7ddd54680..df37111109156da9dc5b0d1d4dfb4587577f4eed 100644
---- a/dist/authorize-BmTe2VYG.mjs
-+++ b/dist/authorize-BmTe2VYG.mjs
+diff --git a/dist/authorize-9whjxVLJ.mjs b/dist/authorize-9whjxVLJ.mjs
+index 6c1d5c51c..47c085e76 100644
+--- a/dist/authorize-9whjxVLJ.mjs
++++ b/dist/authorize-9whjxVLJ.mjs
 @@ -4404,7 +4404,12 @@ const oauthProvider = (options) => {
  		onRequest: handleIssuerMetadataRequest,
  		init: async (ctx) => {

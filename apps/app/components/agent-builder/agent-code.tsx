@@ -8,13 +8,19 @@ import {
 	parseDiffFromFile,
 } from "@pierre/diffs";
 import { Editor, type EditorOptions } from "@pierre/diffs/edit";
-import { EditProvider, File, FileDiff, Virtualizer } from "@pierre/diffs/react";
+import {
+	type EditorFactory,
+	EditProvider,
+	File,
+	FileDiff,
+	Virtualizer,
+} from "@pierre/diffs/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc/client";
 
-const FILE_OPTIONS: FileOptions<undefined> = {
+const FILE_OPTIONS: FileOptions<undefined, undefined> = {
 	theme: { dark: "pierre-dark-soft", light: "pierre-light-soft" },
 	stickyHeader: true,
 };
@@ -30,9 +36,11 @@ const VIRTUALIZER_STYLE = {
 	overflow: "auto",
 } as const;
 
-function createEditor(options: EditorOptions<undefined>) {
-	return new Editor(options);
-}
+const createEditor: EditorFactory<undefined, undefined> = (
+	editorType,
+	options,
+	editStateKey,
+) => new Editor(editorType, options, editStateKey);
 
 export function AgentCode({
 	agentId,
@@ -50,7 +58,7 @@ export function AgentCode({
 	const [changed, setChanged] = useState<string[]>([]);
 	const [saving, setSaving] = useState(false);
 	const draft = useRef(new Map<string, string>());
-	const editorRef = useRef<Editor<undefined> | null>(null);
+	const editorRef = useRef<Editor<"file", undefined, undefined> | null>(null);
 
 	const code = useQuery(trpc.agents.files.queryOptions({ id: agentId }));
 	const files = code.data?.files ?? [];
@@ -98,16 +106,17 @@ export function AgentCode({
 		toast.success("Saved.");
 	}, [agentId, queryClient, save, trpc]);
 
-	const editorOptions = useMemo<EditorOptions<undefined>>(
+	const editorOptions = useMemo<EditorOptions<"file", undefined, undefined>>(
 		() => ({
 			persistState: true,
 			onAttach(editor) {
 				editorRef.current = editor;
 			},
-			onChange(next) {
-				draft.current.set(next.name, next.contents);
+			onChange(event) {
+				const file = event.file;
+				draft.current.set(file.name, file.contents);
 				setChanged((paths) =>
-					paths.includes(next.name) ? paths : [...paths, next.name],
+					paths.includes(file.name) ? paths : [...paths, file.name],
 				);
 			},
 		}),

@@ -25,14 +25,14 @@
 		"db:test": "bun run --filter=@crm/db db:test"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.10",
-		"@oxlint/plugins": "1.78.0",
+		"@biomejs/biome": "^2.5.12",
+		"@oxlint/plugins": "1.82.0",
 		"@paralleldrive/cuid2": "^3.3.0",
 		"drizzle-orm": "^0.45.2",
-		"knip": "6.32.2",
-		"oxlint": "1.78.0",
+		"knip": "6.35.1",
+		"oxlint": "1.82.0",
 		"turbo": "^2.10.12",
-		"typescript": "5.9.2"
+		"typescript": "7.0.2"
 	},
 	"engines": {
 		"node": ">=22"
@@ -50,6 +50,6 @@
 		"packages/agent-xmpp/*"
 	],
 	"patchedDependencies": {
-		"@better-auth/oauth-provider@1.7.2": "patches/@better-auth%2Foauth-provider@1.7.2.patch"
+		"@better-auth/oauth-provider@1.7.3": "patches/@better-auth%2Foauth-provider@1.7.3.patch"
 	}
 }

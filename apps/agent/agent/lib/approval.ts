@@ -1,4 +1,4 @@
-import type { Approval } from "eve/tools";
+import type { Approval } from "eve/tools/approval";
 import { APP_AUTH } from "./app-auth";
 
 export function isAutomated(session: {

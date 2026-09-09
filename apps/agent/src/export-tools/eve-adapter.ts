@@ -1,4 +1,4 @@
-import type { SendFn, SendPayload, Session } from "eve/channels";
+import type { ChannelFrom, Session } from "eve/channels";
 
 import { ExportAgentRunError, ExportCancelledError } from "./errors";
 import { toJsonSchema, validateSchema } from "./schema";
@@ -12,23 +12,13 @@ import { type ExportInvocation, exportJsonValueSchema } from "./wire";
 type ExportSession = Pick<Session, "id" | "cancel" | "getEventStream">;
 
 export function createEveExportSend(
-	send: SendFn,
+	from: ChannelFrom,
 	invocation: ExportInvocation,
 	abortSignal: AbortSignal,
 ): <T>(request: ExportAgentRequest<T>) => Promise<ExportAgentResult<T>> {
 	return async <T>(request: ExportAgentRequest<T>) => {
 		if (abortSignal.aborted) throw new ExportCancelledError();
-		const payload: SendPayload = {
-			message: request.message,
-			context:
-				request.clientContext === undefined
-					? undefined
-					: [JSON.stringify(request.clientContext)],
-			outputSchema: request.outputSchema
-				? toJsonSchema(request.outputSchema)
-				: undefined,
-		};
-		const options = {
+		const session = await from(invocation.requestId).send(request.message, {
 			auth: {
 				authenticator: "xmpp-agent-gateway",
 				principalType: "agent",
@@ -38,11 +28,16 @@ export function createEveExportSend(
 					operation: invocation.operation,
 				},
 			},
-			continuationToken: invocation.requestId,
+			context:
+				request.clientContext === undefined
+					? undefined
+					: [JSON.stringify(request.clientContext)],
+			outputSchema: request.outputSchema
+				? toJsonSchema(request.outputSchema)
+				: undefined,
 			mode: request.taskMode === false ? "conversation" : "task",
 			title: request.title,
-		} as const;
-		const session = await send(payload, options);
+		});
 		let cancellation: ReturnType<ExportSession["cancel"]> | undefined;
 		const cancel = () =>
 			(cancellation ??= session.cancel().catch(() => ({

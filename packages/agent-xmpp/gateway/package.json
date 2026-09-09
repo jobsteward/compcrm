@@ -24,7 +24,7 @@
 		"ulid": "3.0.2"
 	},
 	"devDependencies": {
-		"@types/node": "^22.10.0",
-		"typescript": "^5.7.0"
+		"@types/node": "^26.5.0",
+		"typescript": "^7.0.2"
 	}
 }

@@ -1,4 +1,5 @@
-import type { SendPayload } from "eve/channels";
+import type { UserContent } from "ai";
+import type { ChannelSendOptions } from "eve/channels";
 
 import type {
 	ExportInvocation,
@@ -34,7 +35,7 @@ export interface ExportToolAnnotations {
 }
 
 export interface ExportAgentRequest<T> {
-	readonly message: NonNullable<SendPayload["message"]>;
+	readonly message: string | UserContent;
 	readonly outputSchema?: StandardSchemaV1<unknown, T>;
 	readonly title?: string;
 	readonly taskMode?: boolean;
@@ -65,7 +66,7 @@ export interface ExportToolDefinition<I, O> {
 
 export type AnyExportToolDefinition = ExportToolDefinition<unknown, unknown>;
 
-export type JsonSchema = NonNullable<SendPayload["outputSchema"]>;
+export type JsonSchema = NonNullable<ChannelSendOptions["outputSchema"]>;
 
 export interface ExportToolManifestEntry {
 	readonly name: string;

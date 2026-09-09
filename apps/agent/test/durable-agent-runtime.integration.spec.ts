@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
-import type { SendFn } from "eve/channels";
+import type { UserContent } from "ai";
+import type { ChannelFrom, ChannelSendOptions, Session } from "eve/channels";
 import { z } from "zod";
 import audit from "../agent/hooks/audit";
 import {
@@ -21,6 +22,24 @@ import {
 } from "../agent/lib/run-runtime";
 
 const attachmentBytes = z.object({ data: z.instanceof(Uint8Array) });
+
+const channelFrom =
+	(
+		send: (
+			message: string | UserContent,
+			options: ChannelSendOptions,
+		) => Promise<Session>,
+	): ChannelFrom =>
+	() => ({
+		send,
+		respond: async () => {
+			throw new Error("unused");
+		},
+		cancel: async () => ({ sessionId: "", status: "accepted" }),
+		compact: async () => ({ sessionId: "", status: "accepted" }),
+		clear: async () => ({ sessionId: "", status: "accepted" }),
+		reset: async () => ({ status: "no_active_session" }),
+	});
 
 const suffix = crypto.randomUUID();
 const userId = `durable-runtime-user-${suffix}`;
@@ -324,14 +343,14 @@ describe("durable custom-agent runtime", () => {
 		const run = await createRun("QUEUED", null);
 		let deliveries = 0;
 		const sessionId = `durable-session-${suffix}-agent-dispatch`;
-		const send = (async () => {
+		const from = channelFrom(async () => {
 			deliveries += 1;
-			return { id: sessionId };
-		}) as unknown as SendFn;
+			return { id: sessionId } as Session;
+		});
 
 		const attempts = await Promise.allSettled([
-			dispatchAgentRun(run.id, send),
-			dispatchAgentRun(run.id, send),
+			dispatchAgentRun(run.id, from),
+			dispatchAgentRun(run.id, from),
 		]);
 		const persisted = await db.agentRun.findUniqueOrThrow({
 			where: { id: run.id },
@@ -353,14 +372,14 @@ describe("durable custom-agent runtime", () => {
 			createRun("QUEUED", null),
 		]);
 		const deliveries: string[] = [];
-		const send = (async (message: string) => {
+		const from = channelFrom(async (message: string) => {
 			deliveries.push(message);
-			return { id: `durable-session-${suffix}-serialized` };
-		}) as unknown as SendFn;
+			return { id: `durable-session-${suffix}-serialized` } as Session;
+		});
 
 		const results = await Promise.allSettled([
-			dispatchAgentRun(first.id, send),
-			dispatchAgentRun(second.id, send),
+			dispatchAgentRun(first.id, from),
+			dispatchAgentRun(second.id, from),
 		]);
 
 		expect(
@@ -449,18 +468,18 @@ describe("durable custom-agent runtime", () => {
 		const started = Promise.withResolvers<void>();
 		const release = Promise.withResolvers<void>();
 		let deliveries = 0;
-		const send = (async () => {
+		const from = channelFrom(async () => {
 			deliveries += 1;
 			started.resolve();
 			await release.promise;
-			return { id: `durable-session-${suffix}-builder-dispatch` };
-		}) as unknown as SendFn;
+			return { id: `durable-session-${suffix}-builder-dispatch` } as Session;
+		});
 
-		const firstDispatch = dispatchBuilderSubmission(first.id, send);
+		const firstDispatch = dispatchBuilderSubmission(first.id, from);
 		await started.promise;
 		let secondError: Error | null = null;
 		try {
-			await dispatchBuilderSubmission(second.id, send);
+			await dispatchBuilderSubmission(second.id, from);
 		} catch (error) {
 			secondError = error as Error;
 		}
@@ -518,15 +537,15 @@ describe("durable custom-agent runtime", () => {
 			select: { id: true, submissions: { select: { id: true } } },
 		});
 		builderConversationIds.push(conversation.id);
-		let delivered: Parameters<SendFn>[0] | null = null;
-		const send = (async (input: Parameters<SendFn>[0]) => {
+		let delivered: UserContent | null = null;
+		const from = channelFrom(async (input: UserContent) => {
 			delivered = input;
-			return { id: `durable-session-${suffix}-attachment` };
-		}) as unknown as SendFn;
+			return { id: `durable-session-${suffix}-attachment` } as Session;
+		});
 
 		await dispatchBuilderSubmission(
 			conversation.submissions[0]?.id ?? "",
-			send,
+			from,
 		);
 		const parts = Array.isArray(delivered) ? delivered : [];
 		expect(parts).toHaveLength(2);

@@ -135,7 +135,8 @@ export function assertJsonValueBounded(
 	const visited = new WeakSet<object>();
 	let members = 0;
 	while (pending.length > 0) {
-		const current = pending.pop()!;
+		const current = pending.pop();
+		if (!current) break;
 		if (current.depth > DEFAULT_JSON_LIMITS.maxDepth) {
 			throw new SchemaResourceLimitError(
 				`${label} exceeds JSON depth ${DEFAULT_JSON_LIMITS.maxDepth}`,
@@ -249,7 +250,7 @@ function isPublicProfileHttpsUri(value: string): boolean {
 	) {
 		return false;
 	}
-	const authority = value.slice("https://".length).split(/[/?]/, 1)[0]!;
+	const authority = value.slice("https://".length).split(/[/?]/, 1)[0] ?? "";
 	if (authority.endsWith(":")) return false;
 	const uri = new URL(value);
 	return (
@@ -349,8 +350,8 @@ export async function closeSchemaWorkers(): Promise<void> {
 	}
 	while (validationQueue.length)
 		validationQueue
-			.shift()!
-			.reject(new Error("schema validator worker closed"));
+			.shift()
+			?.reject(new Error("schema validator worker closed"));
 }
 
 function ensureSchemaWorkers(): void {
@@ -394,7 +395,12 @@ function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 	worker.on("message", (response: WorkerResponse) =>
 		settleWorker(slot, response),
 	);
-	worker.on("error", (error) => replaceWorker(slot, error));
+	worker.on("error", (error) =>
+		replaceWorker(
+			slot,
+			error instanceof Error ? error : new Error(String(error)),
+		),
+	);
 	worker.on("exit", (code) => {
 		if (schemaWorkers.includes(slot) && code !== 0) {
 			replaceWorker(
@@ -460,7 +466,7 @@ function replaceWorker(slot: SchemaWorkerSlot, error: Error): void {
 }
 
 function rejectValidationQueue(error: Error): void {
-	while (validationQueue.length) validationQueue.shift()!.reject(error);
+	while (validationQueue.length) validationQueue.shift()?.reject(error);
 }
 
 export function preflightSchema(schema: JsonSchema, label: string): void {
@@ -481,7 +487,9 @@ function assertSchemaComplexity(schema: JsonSchema, label: string): void {
 	];
 	let nodes = 0;
 	while (pending.length > 0) {
-		const { value, depth } = pending.pop()!;
+		const current = pending.pop();
+		if (!current) break;
+		const { value, depth } = current;
 		if (++nodes > SCHEMA_MAX_NODES) {
 			throw new SchemaResourceLimitError(
 				`${label} exceeds ${SCHEMA_MAX_NODES} nodes`,
