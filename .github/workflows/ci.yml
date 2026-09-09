@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [main, release]
+    branches: [master]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -50,12 +50,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
 
       - run: bun install --frozen-lockfile
+
+      - name: Install kaneo dependencies
+        run: cd vendor/kaneo && bun install
+
+      - name: Build kaneo packages
+        run: |
+          cd vendor/kaneo/packages/email && bun run build
+          cd ../permissions && bun run build
 
       - name: Apply migrations
         run: bun run db:deploy
