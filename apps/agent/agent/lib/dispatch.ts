@@ -250,8 +250,16 @@ function reasonOf(cause: unknown): string {
 	return cause instanceof Error ? cause.message : String(cause);
 }
 
+type TaskAuthRecords = {
+	organizationId: string;
+	contactId?: string;
+	companyId?: string;
+	dealId?: string;
+	fieldKeys?: string;
+};
+
 export function taskAuth(task: LeasedTask, base: AppAuth = APP_AUTH): AppAuth {
-	const records: Record<string, string> = {
+	const records: TaskAuthRecords = {
 		organizationId: task.organizationId,
 	};
 	if (task.contactId) records.contactId = task.contactId;

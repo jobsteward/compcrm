@@ -1,5 +1,6 @@
 import { type Db, db } from "@crm/db";
 import { currentOrganizationId } from "@crm/db/tenant-context";
+import { parseActiveOrganizationClaim } from "@crm/validation/active-organization-claim";
 
 export const WORKSPACE_ROLES = ["owner", "admin", "member"] as const;
 
@@ -35,11 +36,10 @@ export function canManageTracking(role: WorkspaceRole | null): boolean {
 
 export function activeOrganizationIdOf(
 	session: {
-		session: Record<string, unknown>;
+		session: { activeOrganizationId: unknown };
 	} | null,
 ): string | null {
-	const value = session?.session.activeOrganizationId;
-	return typeof value === "string" && value !== "" ? value : null;
+	return parseActiveOrganizationClaim(session?.session.activeOrganizationId);
 }
 
 export async function resolveActiveOrganization(

@@ -45,5 +45,9 @@ export function currentOrganizationId(): string {
 }
 
 function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLike<T> {
-	return typeof value === "object" && value !== null && "then" in value;
+	return (
+		value instanceof Object &&
+		"then" in value &&
+		(value as { then: unknown }).then instanceof Function
+	);
 }

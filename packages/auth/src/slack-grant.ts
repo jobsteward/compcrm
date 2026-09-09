@@ -8,8 +8,8 @@ import {
 } from "@crm/db/tenant-context";
 import { scopedTransaction } from "@crm/db/tenant-scope";
 import type { OauthAccess } from "@crm/validation";
+import { parseActiveOrganizationClaim } from "@crm/validation/active-organization-claim";
 import { getSessionFromCtx } from "better-auth/api";
-import { activeOrganizationIdOf } from "./organization";
 import { SLACK_CONNECTION } from "./slack-config";
 
 export async function rememberSlackInstall(grant: OauthAccess): Promise<void> {
@@ -125,12 +125,14 @@ async function currentSlackOrganizationId(): Promise<string> {
 		throw new TenantContextError();
 	});
 	const session = await getSessionFromCtx(
-		context as unknown as Parameters<typeof getSessionFromCtx>[0],
+		context as Parameters<typeof getSessionFromCtx>[0],
 		{
 			disableCookieCache: true,
 		},
 	);
-	const activeOrganizationId = activeOrganizationIdOf(session);
+	const activeOrganizationId = parseActiveOrganizationClaim(
+		session?.session.activeOrganizationId,
+	);
 
 	if (!activeOrganizationId) throw new TenantContextError();
 	return activeOrganizationId;

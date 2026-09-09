@@ -53,7 +53,7 @@ describe("TrackingConfigService cache", () => {
 		} as unknown as ScopedDb;
 		const cache = {
 			get: async (key: string) => entries.get(key),
-			set: async (key: string, value: unknown) => entries.set(key, value),
+			set: async <T>(key: string, value: T) => entries.set(key, value),
 			del: async (key: string) => entries.delete(key),
 		} as unknown as Cache;
 		const service = new TrackingConfigService(

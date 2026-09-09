@@ -13,12 +13,12 @@ import {
 	verifyAccessTokenRequest,
 } from "@crm/auth";
 import type { Db } from "@crm/db";
+import { parseApiKeyPrincipalMetadata } from "@crm/validation/api-key-principal";
 import { Injectable, Logger } from "@nestjs/common";
 import { fromNodeHeaders } from "better-auth/node";
 import type { Request } from "express";
 import { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
-import { parseApiKeyPrincipalMetadata } from "./api-key-principal";
 import {
 	type CredentialKind,
 	type RequestPrincipal,

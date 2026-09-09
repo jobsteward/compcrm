@@ -110,7 +110,7 @@ describe("public tracking tenant context", () => {
 			} as unknown as ScopedDb,
 			{
 				get: async (key: string) => cached.get(key),
-				set: async (key: string, value: unknown) => cached.set(key, value),
+				set: async <T>(key: string, value: T) => cached.set(key, value),
 				del: async (key: string) => cached.delete(key),
 			} as unknown as Cache,
 			locator,

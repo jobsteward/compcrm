@@ -5,7 +5,10 @@ import type { ScopedDb } from "@crm/db/tenant-scope";
 import { scopedDb } from "@crm/db/tenant-scope";
 import { ConflictException } from "@nestjs/common";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
-import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
+import type {
+	AgentTriggerService,
+	CrmEventInput,
+} from "../src/agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../src/companies/company-directory.service";
 import { ContactsService } from "../src/contacts/contacts.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
@@ -19,7 +22,10 @@ const scoped = scopedDb as unknown as ScopedDb;
 
 const agent = {
 	withCrmEvents: (
-		work: (tx: Prisma.TransactionClient, emit: unknown) => unknown,
+		work: (
+			tx: Prisma.TransactionClient,
+			emit: (input: CrmEventInput) => Promise<void>,
+		) => unknown,
 	) =>
 		scopedDb.$transaction(
 			async (tx) =>

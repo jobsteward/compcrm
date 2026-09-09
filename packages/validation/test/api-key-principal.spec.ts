@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { parseApiKeyPrincipalMetadata } from "../src/auth/api-key-principal";
+import { parseApiKeyPrincipalMetadata } from "../src/api-key-principal";
 
 describe("parseApiKeyPrincipalMetadata", () => {
 	it("returns the API key creator", () => {

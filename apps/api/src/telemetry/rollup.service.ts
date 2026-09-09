@@ -70,12 +70,13 @@ type TaskMetrics = {
 };
 
 type AttemptMetric = { mean: number; max: number; count: number };
+type AttemptMetricsByKind = Record<string, AttemptMetric>;
 
 type AgentMetrics = {
 	tools: ToolMetrics;
 	sessions: SessionMetrics;
 	tasks: TaskMetrics;
-	attempts: Record<string, AttemptMetric>;
+	attempts: AttemptMetricsByKind;
 	rechecks: { total: number; buckets: Record<string, number> };
 	conversations: number;
 };
@@ -420,7 +421,7 @@ export class RollupService {
 	private async attempts(
 		db: Prisma.TransactionClient,
 		since: Date,
-	): Promise<Record<string, AttemptMetric>> {
+	): Promise<AttemptMetricsByKind> {
 		const rows = await db.agentTask.groupBy({
 			by: ["kind"],
 			where: { finishedAt: { gte: since } },
@@ -429,7 +430,7 @@ export class RollupService {
 			_max: { attempts: true },
 		});
 
-		const attempts: Record<string, AttemptMetric> = {};
+		const attempts: AttemptMetricsByKind = {};
 
 		for (const row of rows) {
 			const kind = permittedTaskKind(row.kind);
@@ -816,10 +817,9 @@ function aggregateCrm(tenants: readonly TenantMetrics[]): Properties {
 	};
 }
 
-function sharedModel(models: readonly AgentModel[]): {
-	id: string | null;
-	contextWindowTokens: number | null;
-} {
+type SharedModel = { id: string | null; contextWindowTokens: number | null };
+
+function sharedModel(models: readonly AgentModel[]): SharedModel {
 	const first = models[0];
 	if (!first) return { id: null, contextWindowTokens: null };
 	if (
@@ -839,9 +839,9 @@ function sharedModel(models: readonly AgentModel[]): {
 }
 
 function mergeAttempts(
-	groups: readonly Record<string, AttemptMetric>[],
-): Record<string, AttemptMetric> {
-	const combined: Record<string, AttemptMetric> = {};
+	groups: readonly AttemptMetricsByKind[],
+): AttemptMetricsByKind {
+	const combined: AttemptMetricsByKind = {};
 
 	for (const group of groups) {
 		for (const [kind, metric] of Object.entries(group)) {

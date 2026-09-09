@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { z } from "zod";
+
+const tokenResponseSchema = z.object({
+	access_token: z.string(),
+	refresh_token: z.string(),
+});
 
 const suffix = `oauth-tenant-${crypto.randomUUID()}`;
 const userId = `${suffix}-user`;
@@ -125,26 +131,17 @@ async function tokenRequest(
 			body: new URLSearchParams(body),
 		}),
 	);
-	const payload = (await response.json()) as Record<string, unknown>;
+	const payload = await response.json();
 	if (!response.ok) throw new Error(JSON.stringify(payload));
-	if (
-		typeof payload.access_token !== "string" ||
-		typeof payload.refresh_token !== "string"
-	) {
-		throw new Error("OAuth token response is incomplete.");
-	}
-	return {
-		access_token: payload.access_token,
-		refresh_token: payload.refresh_token,
-	};
+	return tokenResponseSchema.parse(payload);
 }
 
-function accessTokenClaims(accessToken: string): Record<string, unknown> {
+function accessTokenClaims(accessToken: string): Record<string, string> {
 	const encoded = accessToken.split(".")[1];
 	if (!encoded) throw new Error("Access token has no payload.");
 	return JSON.parse(
 		Buffer.from(encoded, "base64url").toString("utf8"),
-	) as Record<string, unknown>;
+	) as Record<string, string>;
 }
 
 async function signCookieValue(value: string): Promise<string> {

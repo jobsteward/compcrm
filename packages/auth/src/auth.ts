@@ -4,6 +4,7 @@ import { sso } from "@better-auth/sso";
 import { db } from "@crm/db";
 import { scopedDb } from "@crm/db/tenant-scope";
 import { schemas } from "@crm/validation";
+import { parseActiveOrganizationClaim } from "@crm/validation/active-organization-claim";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError } from "better-auth/api";
@@ -142,11 +143,17 @@ export const auth = betterAuth({
 			postLogin: {
 				page: OAUTH.consentPage,
 				shouldRedirect: async ({ user, session }) => {
-					await oauthOrganizationId(user.id, session.activeOrganizationId);
+					await oauthOrganizationId(
+						user.id,
+						parseActiveOrganizationClaim(session.activeOrganizationId),
+					);
 					return false;
 				},
 				consentReferenceId: ({ user, session }) =>
-					oauthOrganizationId(user.id, session.activeOrganizationId),
+					oauthOrganizationId(
+						user.id,
+						parseActiveOrganizationClaim(session.activeOrganizationId),
+					),
 			},
 			customAccessTokenClaims: ({ referenceId }) =>
 				referenceId ? { [OAUTH_ORGANIZATION_CLAIM]: referenceId } : {},
@@ -365,12 +372,9 @@ type BetterAuthSession = typeof auth.$Infer.Session;
 
 async function oauthOrganizationId(
 	userId: string,
-	activeOrganizationId: unknown,
+	activeOrganizationId: string | null,
 ): Promise<string> {
-	if (
-		typeof activeOrganizationId !== "string" ||
-		!activeOrganizationId.trim()
-	) {
+	if (!activeOrganizationId) {
 		throw new APIError("FORBIDDEN", {
 			message: "Select an organization before authorizing this application.",
 		});

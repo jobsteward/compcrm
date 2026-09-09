@@ -48,7 +48,7 @@ export function tenantBound<T extends object>(
 	return new Proxy(service, {
 		get(target, property, receiver) {
 			const value = Reflect.get(target, property, receiver);
-			if (typeof value !== "function") return value;
+			if (!(value instanceof Function)) return value;
 			return (...args: unknown[]) =>
 				runInTenant(organizationId, () => value.apply(target, args));
 		},

@@ -288,7 +288,7 @@ describe("Auth (e2e)", () => {
 					refreshed.body.access_token.split(".")[1],
 					"base64url",
 				).toString("utf8"),
-			) as Record<string, unknown>;
+			) as Record<string, string>;
 			expect(refreshedPayload[OAUTH_ORGANIZATION_CLAIM]).toBe(organizationId);
 		} finally {
 			await db.user.delete({ where: { id: userId } });

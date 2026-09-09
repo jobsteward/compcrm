@@ -9,12 +9,22 @@ import type { FaviconService } from "../src/companies/favicon.service";
 
 const ORGANIZATIONS = ["organization-a", "organization-b"] as const;
 
+type BackfillServiceInternals = {
+	sweepWorkspace: () => Promise<void>;
+	runCompanies: () => Promise<{
+		queued: number;
+		remaining: number;
+		iconsResolving: number;
+	}>;
+	runContacts: () => Promise<{ queued: number; remaining: number }>;
+};
+
 describe("BackfillService automatic sweep", () => {
 	it("debounces globally while one run sweeps every organization", async () => {
 		const entries = new Map<string, unknown>();
 		const cache = {
 			get: async (key: string) => entries.get(key),
-			set: async (key: string, value: unknown) => {
+			set: async <T>(key: string, value: T) => {
 				entries.set(key, value);
 			},
 		} as unknown as Cache;
@@ -41,15 +51,7 @@ describe("BackfillService automatic sweep", () => {
 			} as unknown as ImageMirrorService,
 			cache,
 		);
-		const controlled = service as unknown as {
-			sweepWorkspace: () => Promise<void>;
-			runCompanies: () => Promise<{
-				queued: number;
-				remaining: number;
-				iconsResolving: number;
-			}>;
-			runContacts: () => Promise<{ queued: number; remaining: number }>;
-		};
+		const controlled = service as unknown as BackfillServiceInternals;
 		controlled.sweepWorkspace = async () => undefined;
 		controlled.runCompanies = async () => ({
 			queued: 0,
