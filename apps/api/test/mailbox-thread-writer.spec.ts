@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { db, type MailboxSyncModel as MailboxSync } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantTest } from "@crm/db/test-support";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../src/companies/company-directory.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
@@ -12,7 +13,6 @@ import {
 	ThreadWriterService,
 } from "../src/mailbox/thread-writer.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
-import { tenantBound, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "thread-writer-spec";
 const domain = `threads-${suffix}.test`;

@@ -3,9 +3,9 @@ import { isGoogleConfigured, ssoProviderName } from "@crm/auth";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { type ScopedDb, scopedDb } from "@crm/db/tenant-scope";
+import { tenantContext } from "@crm/db/test-support";
 import { ForbiddenException } from "@nestjs/common";
 import { SsoService } from "../src/sso/sso.service";
-import { tenantContext } from "@crm/db/test-support";
 
 type Row = {
 	providerId: string;

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect } from "bun:test";
 import type { Db } from "@crm/db";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 import {
 	ENRICHMENT_PAGE,
 	ENRICHMENT_PAGE_MAX,
@@ -8,7 +9,6 @@ import {
 	pageSize,
 } from "@crm/validation/enrichment-queue";
 import { EnrichmentService } from "../src/enrichment/enrichment.service";
-import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "enrichment-queue-spec";
 const email = `queue-${suffix}@example.test`;

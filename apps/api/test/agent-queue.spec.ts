@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
-import { AgentQueueService } from "../src/agent/agent-queue.service";
 import { tenantBound } from "@crm/db/test-support";
+import { AgentQueueService } from "../src/agent/agent-queue.service";
 import { ensureTestWorkspace } from "./workspace.fixture";
 
 const suffix = process.env.TEST_RUN_ID ?? "agent-queue-spec";

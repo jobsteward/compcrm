@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db, type Prisma } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb, scopedTransaction } from "@crm/db/tenant-scope";
+import { tenantBound } from "@crm/db/test-support";
 import { AgentAccessService } from "../src/agent/agent-access.service";
 import { AgentDefinitionsService } from "../src/agent/agent-definitions.service";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
-import { tenantBound } from "@crm/db/test-support";
 import { createTestMembers, ensureTestWorkspace } from "./workspace.fixture";
 
 const WORKSPACE_ID = "agent-lifecycle-spec-workspace";

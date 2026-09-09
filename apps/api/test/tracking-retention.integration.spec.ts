@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { createTenantRows } from "@crm/db/test-support";
 import { TrackingCounterService } from "../src/tracking/tracking-counter.service";
 import { TrackingRetentionService } from "../src/tracking/tracking-retention.service";
 import { TrackingRollupService } from "../src/tracking/tracking-rollup.service";
-import { createTenantRows } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? crypto.randomUUID();
 const organizationA = `tracking-retention-a-${suffix}`;

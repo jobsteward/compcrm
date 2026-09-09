@@ -473,9 +473,7 @@ export class RollupService {
 		return { total: rows.length, buckets };
 	}
 
-	private async ledger(
-		db: Prisma.TransactionClient,
-	): Promise<LedgerMetrics> {
+	private async ledger(db: Prisma.TransactionClient): Promise<LedgerMetrics> {
 		const [byStatus, byBand, methods, kinds, superseded] = await Promise.all([
 			db.contactFact.groupBy({
 				by: ["status"],

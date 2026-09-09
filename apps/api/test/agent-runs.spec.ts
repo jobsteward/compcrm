@@ -1,10 +1,10 @@
 import { afterAll, afterEach, beforeAll, describe, expect } from "bun:test";
 import { db as globalDb } from "@crm/db";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 import { AgentAccessService } from "../src/agent/agent-access.service";
 import { AgentRunsService } from "../src/agent/agent-runs.service";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
-import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 import { ensureTestWorkspace } from "./workspace.fixture";
 
 const WORKSPACE_ID = "agent-runs-spec-workspace";

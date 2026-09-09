@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { createTenantRows, tenantBound } from "@crm/db/test-support";
 import { TrackingService } from "../src/tracking/tracking.service";
 import type { TrackingConfigService } from "../src/tracking/tracking-config.service";
-import { createTenantRows, tenantBound } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? crypto.randomUUID();
 const userId = `tracking-sources-user-${suffix}`;

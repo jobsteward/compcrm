@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db, FactBand, FactStatus } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { createTenantRows } from "@crm/db/test-support";
 import { bucket, drainCounters, restoreCounters } from "@crm/telemetry";
 import { FunnelService } from "../src/telemetry/funnel.service";
 import { RollupService } from "../src/telemetry/rollup.service";
-import { createTenantRows } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? crypto.randomUUID();
 const organizationA = `telemetry-rollup-a-${suffix}`;

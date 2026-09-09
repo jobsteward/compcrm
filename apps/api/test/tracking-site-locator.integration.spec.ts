@@ -2,11 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound } from "@crm/db/test-support";
 import { isSiteId } from "@crm/db/tracking";
 import type { Cache } from "cache-manager";
 import { TrackingConfigService } from "../src/tracking/tracking-config.service";
 import { TrackingSiteLocatorService } from "../src/tracking/tracking-site-locator.service";
-import { tenantBound } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? crypto.randomUUID();
 const organizationId = `tracking-site-locator-${suffix}`;

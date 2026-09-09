@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect } from "bun:test";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantTest } from "@crm/db/test-support";
 import { EVENTS_PER_MINUTE, type TrackingConfig } from "@crm/db/tracking";
 import type { TrackingConfigService } from "../src/tracking/tracking-config.service";
 import { TrackingCounterService } from "../src/tracking/tracking-counter.service";
@@ -9,7 +10,6 @@ import {
 	type IncomingEvent,
 	TrackingIngestService,
 } from "../src/tracking/tracking-ingest.service";
-import { tenantBound, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "ingest-spec";
 const parent = `sites-${suffix}.test`;

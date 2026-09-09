@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { type Db, db as globalDb } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
-import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { tenantContext } from "@crm/db/test-support";
+import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ensureTestWorkspace } from "./workspace.fixture";
 
 const suffix = process.env.TEST_RUN_ID ?? "company-requested-spec";

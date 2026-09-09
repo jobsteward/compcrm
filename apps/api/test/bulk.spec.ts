@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantTest } from "@crm/db/test-support";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { CompaniesService } from "../src/companies/companies.service";
@@ -13,7 +14,6 @@ import { ConversionService } from "../src/currency/conversion.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
-import { tenantBound, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "bulk-spec";
 const domain = `bulk-${suffix}.test`;

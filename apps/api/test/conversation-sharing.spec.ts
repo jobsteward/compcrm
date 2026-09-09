@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantTest } from "@crm/db/test-support";
 import { z } from "zod";
 import { ConversationSharingService } from "../src/conversations/conversation-sharing.service";
 import { ConversationsService } from "../src/conversations/conversations.service";
-import { tenantBound, tenantTest } from "@crm/db/test-support";
 import { createTestMembers, ensureTestWorkspace } from "./workspace.fixture";
 
 const record = z.record(z.string(), z.unknown()).catch({});

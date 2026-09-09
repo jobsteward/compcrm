@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { type Db, db as globalDb } from "@crm/db";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
-import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "deal-contacts-spec";
 const userId = `user-${suffix}`;

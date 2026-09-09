@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect } from "bun:test";
 import { ActivityType, db, EmailDirection, GoogleSyncStatus } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantTest } from "@crm/db/test-support";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { GoogleConnectionService } from "../src/google/google-connection.service";
 import {
@@ -14,7 +15,6 @@ import type { MailboxMatchService } from "../src/mailbox/mailbox-match.service";
 import { MailboxTokenService } from "../src/mailbox/mailbox-token.service";
 import { SyncStateService } from "../src/mailbox/sync-state.service";
 import { MicrosoftConnectionService } from "../src/microsoft/microsoft-connection.service";
-import { tenantBound, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "mailbox-purge-spec";
 const domain = `purge-${suffix}.test`;

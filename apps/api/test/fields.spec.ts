@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect } from "bun:test";
 import { type Db, type FieldEntity, db as globalDb } from "@crm/db";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { CompaniesService } from "../src/companies/companies.service";
@@ -12,7 +13,6 @@ import { ConversionService } from "../src/currency/conversion.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
-import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "fields-spec";
 const domain = `fields-${suffix}.test`;

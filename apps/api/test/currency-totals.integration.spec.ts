@@ -4,6 +4,7 @@ import { normalizeCurrency } from "@crm/db/currency";
 import { writeReportingCurrency as writeReportingCurrencyRaw } from "@crm/db/settings";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantTest } from "@crm/db/test-support";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
@@ -11,7 +12,6 @@ import { DashboardService } from "../src/dashboard/dashboard.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
-import { tenantBound, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "currency-totals-spec";
 const userId = `user-${suffix}`;

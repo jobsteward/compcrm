@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect } from "bun:test";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantTest } from "@crm/db/test-support";
 import {
 	CONTACT_CAP_REASON,
 	CONTACTS_PER_HOUR,
@@ -13,7 +14,6 @@ import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { TrackingCounterService } from "../src/tracking/tracking-counter.service";
 import { TrackingFilingService } from "../src/tracking/tracking-filing.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
-import { tenantBound, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "filing-spec";
 const domain = `visitors-${suffix}.test`;

@@ -29,10 +29,7 @@ export function appPath(
 	const [, first, ...rest] = pathname.split("/");
 	return first === workspace.slug
 		? pathname
-		: workspaceUrl(
-				workspace.slug,
-				rest.length ? `/${rest.join("/")}` : "/",
-			);
+		: workspaceUrl(workspace.slug, rest.length ? `/${rest.join("/")}` : "/");
 }
 
 export function isUnder(pathname: string, prefix: string): boolean {

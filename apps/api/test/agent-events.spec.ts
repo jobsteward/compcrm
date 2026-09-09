@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { db as globalDb } from "@crm/db";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
-import { tenantBound, tenantContext, tenantTest } from "@crm/db/test-support";
 import { ensureTestWorkspace } from "./workspace.fixture";
 
 const suffix = crypto.randomUUID();

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { db, RecordSource } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { tenantBound, tenantTest } from "@crm/db/test-support";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { CompaniesService } from "../src/companies/companies.service";
@@ -14,7 +15,6 @@ import { ConversionService } from "../src/currency/conversion.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { MailboxMatchService } from "../src/mailbox/mailbox-match.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
-import { tenantBound, tenantTest } from "@crm/db/test-support";
 
 const suffix = process.env.TEST_RUN_ID ?? "record-delete-spec";
 const domain = `delete-${suffix}.test`;

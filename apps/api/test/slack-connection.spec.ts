@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { WorkspaceRole } from "@crm/auth";
 import type { Db } from "@crm/db";
+import { tenantBound } from "@crm/db/test-support";
 import type { AgentAccessService } from "../src/agent/agent-access.service";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { SlackChannelsService } from "../src/slack/slack-channels.service";
 import { SlackConnectionService } from "../src/slack/slack-connection.service";
-import { tenantBound } from "@crm/db/test-support";
 
 const userId = "crm-1";
 const organizationId = "workspace";

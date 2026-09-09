@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { runInTenant } from "@crm/db/tenant-context";
 import { scopedDb } from "@crm/db/tenant-scope";
+import { createTenantRows } from "@crm/db/test-support";
 import type { TestingModule } from "@nestjs/testing";
 import { Test } from "@nestjs/testing";
 import { SlackConnectionService } from "../src/slack/slack-connection.service";
-import { createTenantRows } from "@crm/db/test-support";
 
 const fallback = (key: string, value: string) => {
 	if (!process.env[key]) process.env[key] = value;
