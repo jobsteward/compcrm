@@ -1,4 +1,4 @@
-import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
+import { defaultAgentModelResult } from "@crm/db/settings";
 import { type DefinedAgent, defineAgent, defineDynamic } from "eve";
 import { z } from "zod";
 import { selectedModel } from "../../lib/model";
@@ -15,10 +15,7 @@ const agent: DefinedAgent = defineAgent({
 							model: selected.model,
 							modelContextWindowTokens: selected.modelContextWindowTokens,
 						}
-					: {
-							model: DEFAULT_AGENT_MODEL.id,
-							modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
-						};
+					: defaultAgentModelResult();
 			},
 		},
 	}),

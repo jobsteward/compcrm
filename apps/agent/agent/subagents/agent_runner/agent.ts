@@ -1,5 +1,5 @@
 import { db } from "@crm/db";
-import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
+import { defaultAgentModelResult } from "@crm/db/settings";
 import { type DefinedAgent, defineAgent, defineDynamic } from "eve";
 import { z } from "zod";
 import { attribute, purposeOf } from "../../lib/session-purpose";
@@ -11,17 +11,11 @@ const agent: DefinedAgent = defineAgent({
 		events: {
 			"session.started": async (_event, ctx) => {
 				if (purposeOf(ctx) !== "team-agent") {
-					return {
-						model: DEFAULT_AGENT_MODEL.id,
-						modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
-					};
+					return defaultAgentModelResult();
 				}
 				const runId = attribute(ctx, "runId");
 				if (!runId) {
-					return {
-						model: DEFAULT_AGENT_MODEL.id,
-						modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
-					};
+					return defaultAgentModelResult();
 				}
 				const run = await db.agentRun.findUnique({
 					where: { id: runId },
@@ -36,10 +30,7 @@ const agent: DefinedAgent = defineAgent({
 							model: run.version.modelId,
 							modelContextWindowTokens: run.version.modelContextWindowTokens,
 						}
-					: {
-							model: DEFAULT_AGENT_MODEL.id,
-							modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
-						};
+					: defaultAgentModelResult();
 			},
 		},
 	}),

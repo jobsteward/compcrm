@@ -47,6 +47,15 @@ const builderSubmissionMessage = z
 		inputResponse: { requestId: "", optionId: "", text: "" },
 	});
 
+type BuilderInputResponse = z.infer<typeof builderInputResponse>;
+type BuilderSubmissionMessage = z.infer<typeof builderSubmissionMessage>;
+
+function isCreateAgentInput(inputResponse: BuilderInputResponse): boolean {
+	return Boolean(
+		inputResponse.requestId && (inputResponse.optionId || inputResponse.text),
+	);
+}
+
 export async function pendingBuilderSubmissionIds(): Promise<string[]> {
 	await recoverBuilderSubmissions();
 	const rows = await db.agentConversationSubmission.findMany({
@@ -158,45 +167,37 @@ export async function dispatchBuilderSubmission(
 	const conversationId = submission.conversation.id;
 
 	try {
-		const { inputResponse } = builderSubmissionMessage.parse(
-			submission.message,
-		);
+		const message = builderSubmissionMessage.parse(submission.message);
+		const { inputResponse } = message;
 		const { requestId, optionId, text: responseText } = inputResponse;
+		const isCreateAgent = isCreateAgentInput(inputResponse);
 		const auth = {
 			authenticator: "crm-builder",
 			principalType: "user",
 			principalId: submission.conversation.userId,
 			attributes: {
 				purpose: "builder",
-				commandType: builderCommandType(
-					submission.commandType,
-					submission.message,
-				),
+				commandType: isCreateAgent ? "CREATE_AGENT" : submission.commandType,
 				needsTitle: submission.conversation.title ? "false" : "true",
 				conversationId,
 				userId: submission.conversation.userId,
 				submissionId: submission.id,
 			},
 		};
-		const session =
-			requestId && (optionId || responseText)
-				? await from(builderToken(conversationId)).respond(
-						[
-							{
-								requestId,
-								...(optionId ? { optionId } : { text: responseText }),
-							},
-						],
-						{ auth },
-					)
-				: await from(builderToken(conversationId)).send(
-						builderDeliveryMessage(
-							submission.id,
-							submission.message,
-							submission.attachments,
-						),
-						{ auth, title: submission.conversation.title ?? "Agent builder" },
-					);
+		const session = isCreateAgent
+			? await from(builderToken(conversationId)).respond(
+					[
+						{
+							requestId,
+							...(optionId ? { optionId } : { text: responseText }),
+						},
+					],
+					{ auth },
+				)
+			: await from(builderToken(conversationId)).send(
+					builderDeliveryParts(message, submission.id, submission.attachments),
+					{ auth, title: submission.conversation.title ?? "Agent builder" },
+				);
 
 		await db.$transaction(async (tx) => {
 			const conversation = await lockBuilderConversation(tx, conversationId);
@@ -846,12 +847,11 @@ async function recoverAgentRuns() {
 	}
 }
 
-export function builderDeliveryMessage(
+function builderDeliveryParts(
+	message: BuilderSubmissionMessage,
 	submissionId: string,
-	value: Prisma.JsonValue,
 	attachments: readonly BuilderDeliveryAttachment[] = [],
 ): string | UserContent {
-	const message = builderSubmissionMessage.parse(value);
 	const labels = message.resources
 		.map((resource) => resource.label)
 		.filter(Boolean);
@@ -879,13 +879,24 @@ export function builderDeliveryMessage(
 	return parts;
 }
 
+export function builderDeliveryMessage(
+	submissionId: string,
+	value: Prisma.JsonValue,
+	attachments: readonly BuilderDeliveryAttachment[] = [],
+): string | UserContent {
+	return builderDeliveryParts(
+		builderSubmissionMessage.parse(value),
+		submissionId,
+		attachments,
+	);
+}
+
 export function builderCommandType(
 	commandType: string,
 	value: Prisma.JsonValue,
 ): string {
-	const { requestId, optionId, text } =
-		builderSubmissionMessage.parse(value).inputResponse;
-	return requestId && (optionId || text) ? "CREATE_AGENT" : commandType;
+	const { inputResponse } = builderSubmissionMessage.parse(value);
+	return isCreateAgentInput(inputResponse) ? "CREATE_AGENT" : commandType;
 }
 
 type BuilderDeliveryAttachment = {

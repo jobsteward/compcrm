@@ -1,6 +1,6 @@
 import "@crm/env/load";
 
-import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
+import { defaultAgentModelResult } from "@crm/db/settings";
 import { onTelemetryProblem, syncVersion } from "@crm/telemetry";
 import { type DefinedAgent, defineAgent, defineDynamic } from "eve";
 import { logCapabilities } from "./lib/capabilities";
@@ -22,10 +22,7 @@ const agent: DefinedAgent = defineAgent({
 							model: selected.model,
 							modelContextWindowTokens: selected.modelContextWindowTokens,
 						}
-					: {
-							model: DEFAULT_AGENT_MODEL.id,
-							modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
-						};
+					: defaultAgentModelResult();
 			},
 		},
 	}),
