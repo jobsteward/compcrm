@@ -379,9 +379,15 @@ function createSchemaWorkerLineage(
 	return undefined;
 }
 
+let createWorkerInstance: (url: URL) => Worker = (url) => new Worker(url);
+
+export function setWorkerFactory(factory: (url: URL) => Worker): void {
+	createWorkerInstance = factory;
+}
+
 function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 	const sourceMode = import.meta.url.endsWith(".ts");
-	const worker = new Worker(
+	const worker = createWorkerInstance(
 		new URL(
 			sourceMode ? "./schema-worker.ts" : "./schema-worker.js",
 			import.meta.url,
@@ -389,11 +395,9 @@ function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 	);
 	worker.unref();
 	const slot: SchemaWorkerSlot = { worker, consecutiveFailures };
-	worker.on("online", () => console.error("[schema] validator worker online"));
-	worker.on("message", (response: WorkerResponse) => {
-		console.error("[schema] validator worker message", response.id);
-		settleWorker(slot, response);
-	});
+	worker.on("message", (response: WorkerResponse) =>
+		settleWorker(slot, response),
+	);
 	worker.on("error", (error) => {
 		console.error("[schema] validator worker error:", error);
 		replaceWorker(
@@ -402,8 +406,8 @@ function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 		);
 	});
 	worker.on("exit", (code) => {
-		console.error(`[schema] validator worker exited with code ${code}`);
 		if (schemaWorkers.includes(slot) && code !== 0) {
+			console.error(`[schema] validator worker exited with code ${code}`);
 			replaceWorker(
 				slot,
 				new Error(`schema validator worker exited with code ${code}`),

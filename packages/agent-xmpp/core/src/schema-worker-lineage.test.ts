@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it, mock } from "bun:test";
+import { afterAll, describe, expect, it } from "bun:test";
 import { EventEmitter } from "node:events";
 
 interface WorkerRequest {
@@ -31,15 +31,19 @@ function workerAt(index: number): FakeWorker {
 	return worker;
 }
 
-mock.module("node:worker_threads", () => ({ Worker: FakeWorker }));
+const {
+	closeSchemaWorkers,
+	SCHEMA_WORKER_FAILURE_LIMIT,
+	setWorkerFactory,
+	validateJsonBounded,
+} = await import("./schema.ts?worker-lineage");
 
-const schemaModule = "./schema.ts?worker-lineage";
-const { closeSchemaWorkers, SCHEMA_WORKER_FAILURE_LIMIT, validateJsonBounded } =
-	await import(schemaModule);
+setWorkerFactory(
+	() => new FakeWorker() as unknown as import("node:worker_threads").Worker,
+);
 
 afterAll(async () => {
 	await closeSchemaWorkers();
-	mock.restore();
 });
 
 describe("schema worker replacement lineages", () => {
