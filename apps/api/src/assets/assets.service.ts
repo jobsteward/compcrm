@@ -1,6 +1,6 @@
 import type { Db } from "@crm/db";
 import { Injectable } from "@nestjs/common";
-import { InjectDatabase } from "../database/database.constants";
+import { InjectScopedDatabase } from "../database/database.constants";
 import { type AssetActor, assetActorKey } from "./asset-actor";
 import { AssetCatalog } from "./asset-catalog.service";
 import { AssetFiles } from "./asset-files.service";
@@ -20,7 +20,7 @@ export class AssetsService {
 	private readonly catalog: AssetCatalog;
 	private readonly files: AssetFiles;
 
-	constructor(@InjectDatabase() db: Db, storage: AssetStorageService) {
+	constructor(@InjectScopedDatabase() db: Db, storage: AssetStorageService) {
 		const mutations = new AssetMutations(db);
 		this.creation = new AssetUploadCreation(mutations, storage);
 		this.uploads = new AssetUploads(db, storage, mutations);

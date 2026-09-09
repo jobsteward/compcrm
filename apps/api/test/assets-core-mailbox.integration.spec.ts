@@ -5,14 +5,14 @@ import {
 	beforeEach,
 	describe,
 	expect,
-	it,
 } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { db } from "@crm/db";
+import { scopedDb as db } from "@crm/db/tenant-scope";
 import type { AssetActor } from "../src/assets/assets.service";
 import {
 	AssetsCoreFixture,
 	assertLocalTestDatabase,
+	assetTest as it,
 } from "./assets-core.fixture";
 
 let fixture: AssetsCoreFixture;
@@ -143,8 +143,8 @@ describe("asset mailbox actors", () => {
 		const key = randomUUID();
 		const input = metadata({ source: "EMAIL_ATTACHMENT", emailSource });
 		const created = await service.createUpload(system, projectId, input, key);
-		await db.mailboxSync.delete({
-			where: { userId_source: { userId, source: "gmail" } },
+		await db.mailboxSync.deleteMany({
+			where: { userId, source: "gmail" },
 		});
 		await expect(
 			service.createUpload(system, projectId, input, key),

@@ -5,14 +5,14 @@ import {
 	beforeEach,
 	describe,
 	expect,
-	it,
 } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { db } from "@crm/db";
+import { scopedDb as db } from "@crm/db/tenant-scope";
 import type { AssetActor } from "../src/assets/assets.service";
 import {
 	AssetsCoreFixture,
 	assertLocalTestDatabase,
+	assetTest as it,
 } from "./assets-core.fixture";
 
 let fixture: AssetsCoreFixture;

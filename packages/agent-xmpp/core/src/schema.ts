@@ -379,30 +379,35 @@ function createSchemaWorkerLineage(
 	return undefined;
 }
 
+let createWorkerInstance: (url: URL) => Worker = (url) => new Worker(url);
+
+export function setWorkerFactory(factory: (url: URL) => Worker): void {
+	createWorkerInstance = factory;
+}
+
 function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 	const sourceMode = import.meta.url.endsWith(".ts");
-	const worker = new Worker(
+	const worker = createWorkerInstance(
 		new URL(
 			sourceMode ? "./schema-worker.ts" : "./schema-worker.js",
 			import.meta.url,
 		),
-		{
-			execArgv: sourceMode ? ["--import", "tsx"] : undefined,
-		},
 	);
 	worker.unref();
 	const slot: SchemaWorkerSlot = { worker, consecutiveFailures };
 	worker.on("message", (response: WorkerResponse) =>
 		settleWorker(slot, response),
 	);
-	worker.on("error", (error) =>
+	worker.on("error", (error) => {
+		console.error("[schema] validator worker error:", error);
 		replaceWorker(
 			slot,
 			error instanceof Error ? error : new Error(String(error)),
-		),
-	);
+		);
+	});
 	worker.on("exit", (code) => {
 		if (schemaWorkers.includes(slot) && code !== 0) {
+			console.error(`[schema] validator worker exited with code ${code}`);
 			replaceWorker(
 				slot,
 				new Error(`schema validator worker exited with code ${code}`),

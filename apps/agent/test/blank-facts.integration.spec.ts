@@ -1,9 +1,19 @@
-import { afterAll, beforeEach, describe, expect, it } from "bun:test";
-import { db, FactBand, FactStatus } from "@crm/db";
+import { describe, expect } from "bun:test";
+import { FactBand, FactStatus } from "@crm/db";
+import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterAll,
+	tenantBeforeEach,
+	tenantTest,
+} from "@crm/db/test-support";
 import { sweepBlankFacts } from "../agent/lib/blank-facts";
 
 const suffix = process.env.TEST_RUN_ID ?? "blank-facts-spec";
 const email = `blank.subject.${suffix}@example.test`;
+const organizationId = "workspace";
+const it = tenantTest(organizationId);
+const beforeEach = tenantBeforeEach(organizationId);
+const afterAll = tenantAfterAll(organizationId);
 
 let contactId: string;
 
@@ -14,6 +24,7 @@ async function propose(input: {
 }): Promise<string> {
 	const fact = await db.contactFact.create({
 		data: {
+			organizationId,
 			contactId,
 			field: input.field,
 			value: input.value,
@@ -38,7 +49,7 @@ function statusOf(id: string) {
 beforeEach(async () => {
 	await db.contact.deleteMany({ where: { email } });
 	const contact = await db.contact.create({
-		data: { firstName: "Blank", lastName: "Subject", email },
+		data: { organizationId, firstName: "Blank", lastName: "Subject", email },
 		select: { id: true },
 	});
 	contactId = contact.id;

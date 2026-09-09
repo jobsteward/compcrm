@@ -1,4 +1,5 @@
 import type { Db, Prisma } from "@crm/db";
+import { scopedTransaction } from "@crm/db/tenant-scope";
 import {
 	findAssetProject,
 	findProjectAsset,
@@ -22,7 +23,7 @@ export class AssetCatalog {
 		raw: AssetListInput,
 	) {
 		const input = customerAssetListInput.parse(raw);
-		return this.db.$transaction(async (tx) => {
+		return scopedTransaction(this.db, async (tx) => {
 			if (
 				!(await tx.company.findUnique({
 					where: { id: customerId },
@@ -61,7 +62,7 @@ export class AssetCatalog {
 		raw: AssetListInput,
 	) {
 		const input = assetListInput.parse(raw);
-		return this.db.$transaction(async (tx) => {
+		return scopedTransaction(this.db, async (tx) => {
 			await findAssetProject(tx, actor, projectId);
 			return this.list(
 				tx,
@@ -113,7 +114,7 @@ export class AssetCatalog {
 	}
 
 	async getAsset(actor: AssetActor, projectId: string, assetId: string) {
-		return this.db.$transaction(async (tx) => {
+		return scopedTransaction(this.db, async (tx) => {
 			await findAssetProject(tx, actor, projectId);
 			return {
 				asset: assetResponse(

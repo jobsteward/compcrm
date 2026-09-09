@@ -1,9 +1,19 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { ActivityType, DealStage, db, EmailDirection } from "@crm/db";
+import { describe, expect } from "bun:test";
+import { ActivityType, DealStage, EmailDirection } from "@crm/db";
+import { scopedDb as db } from "@crm/db/tenant-scope";
+import {
+	tenantAfterAll,
+	tenantBeforeAll,
+	tenantTest,
+} from "@crm/db/test-support";
 import { readCompanyHistory, readDealHistory } from "../agent/lib/accounts";
 
 const suffix = process.env.TEST_RUN_ID ?? "accounts-spec";
 const domain = `fernhill-${suffix}.test`;
+const organizationId = "workspace";
+const it = tenantTest(organizationId);
+const beforeAll = tenantBeforeAll(organizationId);
+const afterAll = tenantAfterAll(organizationId);
 
 let companyId: string;
 let dealId: string;
@@ -30,6 +40,7 @@ beforeAll(async () => {
 
 	const company = await db.company.create({
 		data: {
+			organizationId,
 			name: `Fernhill Systems ${suffix}`,
 			domain,
 			industry: "Security software",
@@ -41,6 +52,7 @@ beforeAll(async () => {
 
 	const paula = await db.contact.create({
 		data: {
+			organizationId,
 			firstName: "Paula",
 			lastName: "Marchetti",
 			title: "Growth Specialist",
@@ -54,6 +66,7 @@ beforeAll(async () => {
 
 	const placeholder = await db.contact.create({
 		data: {
+			organizationId,
 			firstName: "Tsomerville",
 			lastName: null,
 			email: `tsomerville@${domain}`,
@@ -66,6 +79,7 @@ beforeAll(async () => {
 
 	const deal = await db.deal.create({
 		data: {
+			organizationId,
 			name: `Fernhill platform ${suffix}`,
 			companyId,
 			ownerId: userId,
@@ -75,7 +89,9 @@ beforeAll(async () => {
 			currency: "USD",
 			expectedCloseDate: daysAhead(14),
 			lastActivityAt: daysAgo(3),
-			contacts: { create: [{ contactId: paulaId, role: "Champion" }] },
+			contacts: {
+				create: [{ organizationId, contactId: paulaId, role: "Champion" }],
+			},
 		},
 		select: { id: true },
 	});
@@ -84,6 +100,7 @@ beforeAll(async () => {
 	await db.activity.createMany({
 		data: [
 			{
+				organizationId,
 				type: ActivityType.STAGE_CHANGE,
 				subject: "Stage changed",
 				companyId,
@@ -93,6 +110,7 @@ beforeAll(async () => {
 				meta: { from: "DEMO_BOOKED", to: "QUALIFIED_TO_BUY" },
 			},
 			{
+				organizationId,
 				type: ActivityType.STAGE_CHANGE,
 				subject: "Stage changed",
 				companyId,
@@ -102,6 +120,7 @@ beforeAll(async () => {
 				meta: { from: "QUALIFIED_TO_BUY", to: "CONTRACT_SENT" },
 			},
 			{
+				organizationId,
 				type: ActivityType.NOTE,
 				subject: "Pricing pushback",
 				body: "They want the security review done before signing.",
@@ -111,6 +130,7 @@ beforeAll(async () => {
 				createdById: userId,
 			},
 			{
+				organizationId,
 				type: ActivityType.EMAIL,
 				subject: "Re: Contract",
 				companyId,
@@ -122,6 +142,7 @@ beforeAll(async () => {
 
 	const thread = await db.emailThread.create({
 		data: {
+			organizationId,
 			rootMessageId: `<root.${suffix}@example.test>`,
 			subject: "Re: Contract",
 			companyId,
@@ -136,6 +157,7 @@ beforeAll(async () => {
 	await db.emailMessage.createMany({
 		data: [
 			{
+				organizationId,
 				threadId: thread.id,
 				rfcMessageId: `<out.${suffix}@example.test>`,
 				direction: EmailDirection.OUTBOUND,
@@ -146,6 +168,7 @@ beforeAll(async () => {
 				sentAt: daysAgo(9),
 			},
 			{
+				organizationId,
 				threadId: thread.id,
 				rfcMessageId: `<in.${suffix}@example.test>`,
 				direction: EmailDirection.INBOUND,
@@ -161,6 +184,7 @@ beforeAll(async () => {
 
 	await db.calendarEvent.create({
 		data: {
+			organizationId,
 			iCalUid: `event.${suffix}@example.test`,
 			originalStartTime: daysAhead(4),
 			title: "Security review",
@@ -171,7 +195,11 @@ beforeAll(async () => {
 			contactId: paulaId,
 			attendees: {
 				create: [
-					{ email: `paula.marchetti@${domain}`, name: "Paula Marchetti" },
+					{
+						organizationId,
+						email: `paula.marchetti@${domain}`,
+						name: "Paula Marchetti",
+					},
 				],
 			},
 		},

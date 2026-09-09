@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Db, Prisma } from "@crm/db";
+import { scopedTransaction } from "@crm/db/tenant-scope";
 import type { z } from "zod";
 import {
 	findAssetProject,
@@ -45,7 +46,8 @@ export class AssetMutations {
 			);
 		const actorKey = assetActorKey(actor);
 		const requestHash = hashAssetRequest(input);
-		return this.db.$transaction(
+		return scopedTransaction(
+			this.db,
 			async (tx) => {
 				await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${actorKey}, 0))`;
 				const project = await findAssetProject(tx, actor, projectId, true);

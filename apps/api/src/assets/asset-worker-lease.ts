@@ -4,6 +4,7 @@ import type {
 	Db,
 	Prisma,
 } from "@crm/db";
+import { scopedTransaction } from "@crm/db/tenant-scope";
 import { ASSETS } from "./asset-config";
 import { LeaseLost } from "./asset-worker-errors";
 
@@ -21,7 +22,7 @@ export async function withOwnedAssetStorageJob<T>(
 	job: AssetStorageJob,
 	action: (tx: Tx) => Promise<T>,
 ) {
-	return db.$transaction(async (tx) => {
+	return scopedTransaction(db, async (tx) => {
 		await tx.$queryRaw`SELECT "id" FROM "deal" WHERE "id" = ${job.projectId} FOR UPDATE`;
 		await assertAssetStorageJobLease(tx, job);
 		return action(tx);
@@ -43,7 +44,7 @@ export async function completeAssetStorageJob(tx: Tx, job: AssetStorageJob) {
 
 export async function claimAssetStorageJob(db: Db) {
 	const leaseToken = randomUUID();
-	return db.$transaction(async (tx) => {
+	return scopedTransaction(db, async (tx) => {
 		const rows = await tx.$queryRaw<
 			Array<{ id: string }>
 		>`SELECT "id" FROM "assetStorageJob" WHERE ("state" = 'PENDING' AND "nextAttemptAt" <= (NOW() AT TIME ZONE 'UTC')) OR ("state" = 'RUNNING' AND "leaseUntil" <= (NOW() AT TIME ZONE 'UTC')) OR ("state" = 'COMPLETE' AND "operation" = 'DELETE_OBJECT' AND "nextAttemptAt" <= (NOW() AT TIME ZONE 'UTC')) ORDER BY "nextAttemptAt", "id" FOR UPDATE SKIP LOCKED LIMIT 1`;
@@ -64,8 +65,8 @@ export function startAssetStorageJobHeartbeat(db: Db, job: AssetStorageJob) {
 	const heartbeat = setInterval(() => {
 		if (heartbeatPending) return;
 		heartbeatPending = true;
-		void db.assetStorageJob
-			.updateMany({
+		void scopedTransaction(db, (tx) =>
+			tx.assetStorageJob.updateMany({
 				where: {
 					id: job.id,
 					state: "RUNNING",
@@ -75,7 +76,8 @@ export function startAssetStorageJobHeartbeat(db: Db, job: AssetStorageJob) {
 				data: {
 					leaseUntil: new Date(Date.now() + ASSETS.worker.leaseMs),
 				},
-			})
+			}),
+		)
 			.catch(() => {})
 			.finally(() => {
 				heartbeatPending = false;

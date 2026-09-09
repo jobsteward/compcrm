@@ -1,10 +1,17 @@
 import { spyOn } from "bun:test";
 import { randomUUID } from "node:crypto";
 import type { Db } from "@crm/db";
+import { scopedDb } from "@crm/db/tenant-scope";
 import type { INestApplication } from "@nestjs/common";
 import { AssetStorageService } from "../src/assets/asset-storage.service";
 import type { RequestPrincipal } from "../src/auth/request-principal";
 import { RequestPrincipalService } from "../src/auth/request-principal.service";
+import {
+	ASSET_TEST_ORGANIZATION_ID,
+	addAssetTestMember,
+	inAssetTenant,
+	removeAssetTestMember,
+} from "./assets-tenant.fixture";
 
 export class AssetsHttpFixture {
 	readonly prefix = `asset-http-${randomUUID()}`;
@@ -41,16 +48,19 @@ export class AssetsHttpFixture {
 				emailVerified: true,
 			},
 		});
-		await this.db.company.create({
-			data: { id: this.customerId, name: "Asset HTTP test" },
-		});
-		await this.db.deal.createMany({
-			data: [this.projectId, this.otherProjectId].map((id) => ({
-				id,
-				name: id,
-				companyId: this.customerId,
-				ownerId: this.userId,
-			})),
+		await addAssetTestMember(this.userId, randomUUID());
+		await inAssetTenant(async () => {
+			await scopedDb.company.create({
+				data: { id: this.customerId, name: "Asset HTTP test" },
+			});
+			await scopedDb.deal.createMany({
+				data: [this.projectId, this.otherProjectId].map((id) => ({
+					id,
+					name: id,
+					companyId: this.customerId,
+					ownerId: this.userId,
+				})),
+			});
 		});
 		this.principal = {
 			credentialKind: "oauth",
@@ -58,6 +68,7 @@ export class AssetsHttpFixture {
 			clientId: "asset-test-client",
 			scopes: new Set(["crm.read", "crm.write"]),
 			session: null,
+			organizationId: ASSET_TEST_ORGANIZATION_ID,
 			expiresAt: null,
 		};
 		const { createApp } = await import("../src/create-app");
@@ -105,22 +116,25 @@ export class AssetsHttpFixture {
 		for (const restore of this.restores) restore();
 		if (this.app) await this.app.close();
 		if (!this.db) return;
-		await this.db.assetStorageJob.deleteMany({
-			where: { projectId: { in: [this.projectId, this.otherProjectId] } },
+		await inAssetTenant(async () => {
+			await scopedDb.assetStorageJob.deleteMany({
+				where: { projectId: { in: [this.projectId, this.otherProjectId] } },
+			});
+			await scopedDb.assetApiRequest.deleteMany({
+				where: { actorKey: `user:${this.userId}` },
+			});
+			await scopedDb.assetEmailSource.deleteMany({
+				where: { projectId: { in: [this.projectId, this.otherProjectId] } },
+			});
+			await scopedDb.assetUpload.deleteMany({
+				where: { projectId: { in: [this.projectId, this.otherProjectId] } },
+			});
+			await scopedDb.deal.deleteMany({
+				where: { id: { in: [this.projectId, this.otherProjectId] } },
+			});
+			await scopedDb.company.delete({ where: { id: this.customerId } });
 		});
-		await this.db.assetApiRequest.deleteMany({
-			where: { actorKey: `user:${this.userId}` },
-		});
-		await this.db.assetEmailSource.deleteMany({
-			where: { projectId: { in: [this.projectId, this.otherProjectId] } },
-		});
-		await this.db.assetUpload.deleteMany({
-			where: { projectId: { in: [this.projectId, this.otherProjectId] } },
-		});
-		await this.db.deal.deleteMany({
-			where: { id: { in: [this.projectId, this.otherProjectId] } },
-		});
-		await this.db.company.delete({ where: { id: this.customerId } });
+		await removeAssetTestMember(this.userId);
 		await this.db.user.delete({ where: { id: this.userId } });
 	}
 }

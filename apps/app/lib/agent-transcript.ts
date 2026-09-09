@@ -89,7 +89,6 @@ const VERBS: ToolVerbs = {
 	task_create: "Created a project task",
 	task_update: "Updated a project task",
 	task_comment: "Commented on a project task",
-
 	load_skill: "Read its instructions for this",
 	web_search: "Searched the web",
 	web_fetch: "Read a web page",

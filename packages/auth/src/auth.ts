@@ -2,7 +2,9 @@ import { apiKey } from "@better-auth/api-key";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { sso } from "@better-auth/sso";
 import { db } from "@crm/db";
+import { scopedDb } from "@crm/db/tenant-scope";
 import { schemas } from "@crm/validation";
+import { parseActiveOrganizationClaim } from "@crm/validation/active-organization-claim";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError } from "better-auth/api";
@@ -12,8 +14,8 @@ import { organization } from "better-auth/plugins/organization";
 import { API_KEY_EXPIRATION, API_KEY_HEADER, API_KEY_PREFIX } from "./api-keys";
 import { AUTH_COOKIE_PREFIX } from "./cookies";
 import { env } from "./env";
-import { OAUTH, OAUTH_SCOPES } from "./oauth-config";
-import { ensureWorkspaceMembership } from "./organization";
+import { OAUTH, OAUTH_ORGANIZATION_CLAIM, OAUTH_SCOPES } from "./oauth-config";
+import { resolveActiveOrganization, workspaceRoleOf } from "./organization";
 import {
 	GOOGLE_PROVIDER_ID,
 	MICROSOFT_PROVIDER_ID,
@@ -78,7 +80,7 @@ export const auth = betterAuth({
 	baseURL: env.apiUrl,
 	disabledPaths: ["/token"],
 
-	database: prismaAdapter(db, {
+	database: prismaAdapter(scopedDb, {
 		provider: "postgresql",
 	}),
 
@@ -138,6 +140,23 @@ export const auth = betterAuth({
 		oauthProvider({
 			loginPage: OAUTH.loginPage,
 			consentPage: OAUTH.consentPage,
+			postLogin: {
+				page: OAUTH.consentPage,
+				shouldRedirect: async ({ user, session }) => {
+					await oauthOrganizationId(
+						user.id,
+						parseActiveOrganizationClaim(session.activeOrganizationId),
+					);
+					return false;
+				},
+				consentReferenceId: ({ user, session }) =>
+					oauthOrganizationId(
+						user.id,
+						parseActiveOrganizationClaim(session.activeOrganizationId),
+					),
+			},
+			customAccessTokenClaims: ({ referenceId }) =>
+				referenceId ? { [OAUTH_ORGANIZATION_CLAIM]: referenceId } : {},
 			scopes: [...OAUTH_SCOPES],
 			resources: [
 				{
@@ -276,7 +295,8 @@ export const auth = betterAuth({
 		apiKey({
 			apiKeyHeaders: API_KEY_HEADER,
 			defaultPrefix: API_KEY_PREFIX,
-			enableSessionForAPIKeys: true,
+			enableMetadata: true,
+			references: "organization",
 			requireName: true,
 			defaultKeyLength: 32,
 			maximumNameLength: 64,
@@ -325,10 +345,12 @@ export const auth = betterAuth({
 		session: {
 			create: {
 				before: async (session) => {
-					const workspaceId = await ensureWorkspaceMembership(session.userId);
+					const activeOrganizationId = await resolveActiveOrganization(
+						session.userId,
+					);
 
 					return {
-						data: { ...session, activeOrganizationId: workspaceId ?? null },
+						data: { ...session, activeOrganizationId },
 					};
 				},
 
@@ -346,7 +368,32 @@ export const auth = betterAuth({
 });
 
 export type Auth = typeof auth;
-export type Session = typeof auth.$Infer.Session;
+type BetterAuthSession = typeof auth.$Infer.Session;
+
+async function oauthOrganizationId(
+	userId: string,
+	activeOrganizationId: string | null,
+): Promise<string> {
+	if (!activeOrganizationId) {
+		throw new APIError("FORBIDDEN", {
+			message: "Select an organization before authorizing this application.",
+		});
+	}
+
+	if (!(await workspaceRoleOf(userId, activeOrganizationId))) {
+		throw new APIError("FORBIDDEN", {
+			message: "You are not a member of the selected organization.",
+		});
+	}
+
+	return activeOrganizationId;
+}
+
+export type Session = Omit<BetterAuthSession, "session"> & {
+	session: BetterAuthSession["session"] & {
+		activeOrganizationId: string | null;
+	};
+};
 export type SessionUser = Session["user"];
 
 async function replaceSlackAccount(account: {

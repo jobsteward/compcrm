@@ -1,4 +1,5 @@
 import type { Db } from "@crm/db";
+import { scopedTransaction } from "@crm/db/tenant-scope";
 import {
 	findAssetProject,
 	findAssetUpload,
@@ -28,7 +29,7 @@ export class AssetUploads {
 	) {}
 
 	async getUpload(actor: AssetActor, projectId: string, uploadId: string) {
-		return this.db.$transaction(async (tx) => {
+		return scopedTransaction(this.db, async (tx) => {
 			await findAssetProject(tx, actor, projectId, true);
 			let upload = await findAssetUpload(tx, projectId, uploadId, actor);
 			if (upload.status === "PENDING" && upload.expiresAt <= new Date()) {
