@@ -31,7 +31,7 @@ export default defineChannel({
 			if (!authorized(request)) return denied();
 			return Response.json({ tools: exportToolManifest() });
 		}),
-		POST("/internal/xmpp/export-tools/invoke", async (request, { send }) => {
+		POST("/internal/xmpp/export-tools/invoke", async (request, { from }) => {
 			if (!authorized(request)) return denied();
 			const parsed = exportInvocationRequestSchema.safeParse(
 				await request.json(),
@@ -58,7 +58,7 @@ export default defineChannel({
 							),
 						);
 					};
-					const eveSend = createEveExportSend(send, invocation, request.signal);
+					const eveSend = createEveExportSend(from, invocation, request.signal);
 					void executeExportTool(parsed.data.operation, parsed.data.arguments, {
 						abortSignal: request.signal,
 						invocation,

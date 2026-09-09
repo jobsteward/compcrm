@@ -18,11 +18,11 @@
 	"dependencies": {
 		"@crm/db": "workspace:*",
 		"@crm/env": "workspace:*",
-		"posthog-node": "^5.48.0"
+		"posthog-node": "^5.51.8"
 	},
 	"devDependencies": {
 		"@crm/typescript-config": "workspace:*",
-		"@types/node": "^24.10.1",
-		"typescript": "5.9.2"
+		"@types/node": "^26.5.0",
+		"typescript": "7.0.2"
 	}
 }

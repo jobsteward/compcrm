@@ -3,7 +3,8 @@ import { CRM_EVENT_CATALOG } from "@crm/db/crm-events";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { crmEventTask } from "@crm/validation/agent-events";
 import { readAgentTriggerConfig } from "@crm/validation/agent-manifest";
-import type { SendFn } from "eve/channels";
+import type { UserContent } from "ai";
+import type { ChannelFrom } from "eve/channels";
 import { z } from "zod";
 import { DISPATCH } from "./dispatch-config";
 import { DEPENDENCY_UNAVAILABLE, runDependencyFailure } from "./run-preflight";
@@ -20,7 +21,7 @@ const MAX_BUILDER_ATTEMPTS = DISPATCH.builder.maxAttempts;
 const BUILDER_LEASE_MS = DISPATCH.builder.leaseMs;
 const RUN_DELIVERY_LEASE_MS = DISPATCH.run.deliveryLeaseMs;
 
-type BuilderMessageParts = Extract<Parameters<SendFn>[0], readonly unknown[]>;
+type BuilderMessageParts = Extract<UserContent, readonly unknown[]>;
 
 const trimmedText = z.string().trim().catch("");
 
@@ -71,15 +72,15 @@ export async function pendingBuilderSubmissionIds(): Promise<string[]> {
 		.slice(0, BUILDER_BATCH);
 }
 
-export async function drainBuilder(send: SendFn): Promise<number> {
+export async function drainBuilder(from: ChannelFrom): Promise<number> {
 	const ids = await pendingBuilderSubmissionIds();
-	await Promise.all(ids.map((id) => dispatchBuilderSubmission(id, send)));
+	await Promise.all(ids.map((id) => dispatchBuilderSubmission(id, from)));
 	return ids.length;
 }
 
 export async function dispatchBuilderSubmission(
 	submissionId: string,
-	send: SendFn,
+	from: ChannelFrom,
 ) {
 	const submission = await db.$transaction(async (tx) => {
 		const seed = await tx.agentConversationSubmission.findUnique({
@@ -157,33 +158,45 @@ export async function dispatchBuilderSubmission(
 	const conversationId = submission.conversation.id;
 
 	try {
-		const session = await send(
-			builderDeliveryMessage(
-				submission.id,
-				submission.message,
-				submission.attachments,
-			),
-			{
-				auth: {
-					authenticator: "crm-builder",
-					principalType: "user",
-					principalId: submission.conversation.userId,
-					attributes: {
-						purpose: "builder",
-						commandType: builderCommandType(
-							submission.commandType,
-							submission.message,
-						),
-						needsTitle: submission.conversation.title ? "false" : "true",
-						conversationId,
-						userId: submission.conversation.userId,
-						submissionId: submission.id,
-					},
-				},
-				continuationToken: builderToken(conversationId),
-				title: submission.conversation.title ?? "Agent builder",
-			},
+		const { inputResponse } = builderSubmissionMessage.parse(
+			submission.message,
 		);
+		const { requestId, optionId, text: responseText } = inputResponse;
+		const auth = {
+			authenticator: "crm-builder",
+			principalType: "user",
+			principalId: submission.conversation.userId,
+			attributes: {
+				purpose: "builder",
+				commandType: builderCommandType(
+					submission.commandType,
+					submission.message,
+				),
+				needsTitle: submission.conversation.title ? "false" : "true",
+				conversationId,
+				userId: submission.conversation.userId,
+				submissionId: submission.id,
+			},
+		};
+		const session =
+			requestId && (optionId || responseText)
+				? await from(builderToken(conversationId)).respond(
+						[
+							{
+								requestId,
+								...(optionId ? { optionId } : { text: responseText }),
+							},
+						],
+						{ auth },
+					)
+				: await from(builderToken(conversationId)).send(
+						builderDeliveryMessage(
+							submission.id,
+							submission.message,
+							submission.attachments,
+						),
+						{ auth, title: submission.conversation.title ?? "Agent builder" },
+					);
 
 		await db.$transaction(async (tx) => {
 			const conversation = await lockBuilderConversation(tx, conversationId);
@@ -424,7 +437,7 @@ export async function pendingAgentRunIds(): Promise<string[]> {
 	return runnable;
 }
 
-export async function drainAgentRuns(send: SendFn): Promise<number> {
+export async function drainAgentRuns(from: ChannelFrom): Promise<number> {
 	await queueDueAgentRuns();
 
 	let dispatched = 0;
@@ -434,7 +447,7 @@ export async function drainAgentRuns(send: SendFn): Promise<number> {
 
 		const outcomes = await Promise.all(
 			ids.map((id) =>
-				dispatchAgentRun(id, send).then(
+				dispatchAgentRun(id, from).then(
 					() => true,
 					(error) => {
 						console.error(
@@ -453,7 +466,7 @@ export async function drainAgentRuns(send: SendFn): Promise<number> {
 	return dispatched;
 }
 
-export async function dispatchAgentRun(runId: string, send: SendFn) {
+export async function dispatchAgentRun(runId: string, from: ChannelFrom) {
 	const run = await db.agentRun.findUnique({
 		where: { id: runId },
 		select: {
@@ -513,23 +526,25 @@ export async function dispatchAgentRun(runId: string, send: SendFn) {
 
 	const principalId = run.initiatedById ?? run.agent.createdById;
 	try {
-		const session = await send(`Execute deployed agent run ${run.id}.`, {
-			auth: {
-				authenticator: run.initiatedById ? "crm-user" : "crm-schedule",
-				principalType: run.initiatedById ? "user" : "runtime",
-				principalId,
-				attributes: {
-					purpose: "team-agent",
-					runId: run.id,
-					agentId: run.agentId,
-					versionId: run.versionId,
-					userId: principalId,
+		const session = await from(runToken(run.id)).send(
+			`Execute deployed agent run ${run.id}.`,
+			{
+				auth: {
+					authenticator: run.initiatedById ? "crm-user" : "crm-schedule",
+					principalType: run.initiatedById ? "user" : "runtime",
+					principalId,
+					attributes: {
+						purpose: "team-agent",
+						runId: run.id,
+						agentId: run.agentId,
+						versionId: run.versionId,
+						userId: principalId,
+					},
 				},
+				title: `${run.agent.name} run`,
+				mode: "task",
 			},
-			continuationToken: runToken(run.id),
-			title: `${run.agent.name} run`,
-			mode: "task",
-		});
+		);
 
 		await db.agentRun.updateMany({
 			where: { id: run.id, status: "RUNNING" },
@@ -835,20 +850,8 @@ export function builderDeliveryMessage(
 	submissionId: string,
 	value: Prisma.JsonValue,
 	attachments: readonly BuilderDeliveryAttachment[] = [],
-): Parameters<SendFn>[0] {
+): string | UserContent {
 	const message = builderSubmissionMessage.parse(value);
-	const { requestId, optionId, text: responseText } = message.inputResponse;
-	if (requestId && (optionId || responseText)) {
-		return {
-			inputResponses: [
-				{
-					requestId,
-					...(optionId ? { optionId } : { text: responseText }),
-				},
-			],
-		};
-	}
-
 	const labels = message.resources
 		.map((resource) => resource.label)
 		.filter(Boolean);

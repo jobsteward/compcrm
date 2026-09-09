@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
-import type { MessageStreamEvent, SessionState } from "eve/client";
+import type { ClientSessionState, MessageStreamEvent } from "eve/client";
 import { recordCopy, recordFilter, recordHeader } from "../lib/agent-record";
 import { classify, composerState, eventsOf } from "../lib/agent-session";
 
@@ -12,49 +12,41 @@ const event = (
 ): MessageStreamEvent =>
 	({ type, data: {}, meta: { id: `evt_${type}`, at } }) as MessageStreamEvent;
 
-const parked: SessionState = {
-	sessionId: "wrun_1",
-	continuationToken: "eve:live",
-	streamIndex: 3,
-};
-
-const unparked: SessionState = { sessionId: "wrun_1", streamIndex: 3 };
+const state: ClientSessionState = { sessionId: "wrun_1", streamIndex: 3 };
 
 describe("classify", () => {
-	it("trusts the token over any reading of the events", () => {
-		expect(classify(parked, [event("message.appended")], NOW)).toBe("ready");
+	it("treats a parked session as ready", () => {
+		expect(classify([event("session.waiting")], NOW)).toBe("ready");
 	});
 
 	it("knows a terminal session cannot be continued", () => {
-		expect(classify(unparked, [event("session.completed")], NOW)).toBe("ended");
-		expect(classify(unparked, [event("session.failed")], NOW)).toBe("ended");
+		expect(classify([event("session.completed")], NOW)).toBe("ended");
+		expect(classify([event("session.failed")], NOW)).toBe("ended");
 	});
 
 	it("reads a turn still emitting as working", () => {
 		const recent = event("message.appended", "2026-08-01T11:59:30.000Z");
 
-		expect(classify(unparked, [recent], NOW)).toBe("working");
+		expect(classify([recent], NOW)).toBe("working");
 	});
 
 	it("retires a turn that stopped mid-sentence", () => {
 		const stalled = event("message.appended", "2026-08-01T11:50:00.000Z");
 
-		expect(classify(unparked, [stalled], NOW)).toBe("ended");
+		expect(classify([stalled], NOW)).toBe("ended");
 	});
 
 	it("does not retire a live turn for want of a timestamp", () => {
 		const undated = { type: "step.started", data: {}, meta: { id: "x" } };
 
-		expect(classify(unparked, [undated as MessageStreamEvent], NOW)).toBe(
-			"working",
-		);
+		expect(classify([undated as MessageStreamEvent], NOW)).toBe("working");
 	});
 });
 
 describe("the composer", () => {
 	it("takes input on a parked thread, and on one not started yet", () => {
 		expect(
-			composerState({ status: "ready", session: parked, events: [] }, false),
+			composerState({ status: "ready", session: state, events: [] }, false),
 		).toEqual({ locked: false, ended: false });
 		expect(composerState({ status: "new" }, false)).toEqual({
 			locked: false,
@@ -68,20 +60,17 @@ describe("the composer", () => {
 
 	it("holds input while a turn is in flight, from either side", () => {
 		expect(
-			composerState({ status: "ready", session: parked, events: [] }, true)
+			composerState({ status: "ready", session: state, events: [] }, true)
 				.locked,
 		).toBe(true);
 		expect(
-			composerState(
-				{ status: "working", session: unparked, events: [] },
-				false,
-			),
+			composerState({ status: "working", session: state, events: [] }, false),
 		).toEqual({ locked: true, ended: false });
 	});
 
 	it("says an ended thread is ended rather than merely busy", () => {
 		expect(
-			composerState({ status: "ended", session: unparked, events: [] }, false),
+			composerState({ status: "ended", session: state, events: [] }, false),
 		).toEqual({ locked: true, ended: true });
 	});
 
@@ -98,7 +87,7 @@ describe("eventsOf", () => {
 		const events = [event("message.completed")];
 
 		expect(eventsOf({ status: "offline", events })).toEqual(events);
-		expect(eventsOf({ status: "ended", session: unparked, events })).toEqual(
+		expect(eventsOf({ status: "ended", session: state, events })).toEqual(
 			events,
 		);
 		expect(eventsOf({ status: "new" })).toEqual([]);

@@ -81,36 +81,37 @@ describe("builder delivery messages", () => {
 	});
 
 	it("routes a selected answer back to the parked Eve input request", () => {
-		expect(
-			builderDeliveryMessage("submission-1", {
-				text: "Use a CRM task instead",
-				inputResponse: {
-					requestId: "question-1",
-					optionId: "crm-task",
-				},
-			}),
-		).toEqual({
-			inputResponses: [{ requestId: "question-1", optionId: "crm-task" }],
-		});
+		const value = {
+			text: "Use a CRM task instead",
+			inputResponse: {
+				requestId: "question-1",
+				optionId: "crm-task",
+			},
+		};
+		expect(builderCommandType("CHAT", value)).toBe("CREATE_AGENT");
+		expect(builderDeliveryMessage("submission-1", value)).toEqual([
+			{
+				type: "text",
+				text: "Submission id: submission-1\n\nUse a CRM task instead",
+			},
+		]);
 	});
 
 	it("routes a written answer back to the parked Eve input request", () => {
-		expect(
-			builderDeliveryMessage("submission-1", {
+		const value = {
+			text: "Use the private renewals channel",
+			inputResponse: {
+				requestId: "question-2",
 				text: "Use the private renewals channel",
-				inputResponse: {
-					requestId: "question-2",
-					text: "Use the private renewals channel",
-				},
-			}),
-		).toEqual({
-			inputResponses: [
-				{
-					requestId: "question-2",
-					text: "Use the private renewals channel",
-				},
-			],
-		});
+			},
+		};
+		expect(builderCommandType("CHAT", value)).toBe("CREATE_AGENT");
+		expect(builderDeliveryMessage("submission-1", value)).toEqual([
+			{
+				type: "text",
+				text: "Submission id: submission-1\n\nUse the private renewals channel",
+			},
+		]);
 	});
 
 	it("delivers persisted attachment bytes with model-visible metadata", () => {

@@ -588,7 +588,7 @@ function BuilderEventFollower({
 		});
 
 		const follow = async () => {
-			const session = client.session({ sessionId, streamIndex: 0 });
+			const session = client.sessions.attach(sessionId, { streamIndex: 0 });
 			const snapshot = await session.snapshot({ signal: controller.signal });
 			if (controller.signal.aborted) return;
 			onSnapshot(snapshot.events);

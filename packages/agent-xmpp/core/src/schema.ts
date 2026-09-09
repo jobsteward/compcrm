@@ -394,7 +394,12 @@ function createSchemaWorker(consecutiveFailures: number): SchemaWorkerSlot {
 	worker.on("message", (response: WorkerResponse) =>
 		settleWorker(slot, response),
 	);
-	worker.on("error", (error) => replaceWorker(slot, error));
+	worker.on("error", (error) =>
+	replaceWorker(
+		slot,
+		error instanceof Error ? error : new Error(String(error)),
+	),
+);
 	worker.on("exit", (code) => {
 		if (schemaWorkers.includes(slot) && code !== 0) {
 			replaceWorker(

@@ -1,4 +1,4 @@
-import type { MessageStreamEvent, SessionState } from "eve/client";
+import type { ClientSessionState, MessageStreamEvent } from "eve/client";
 import { Client } from "eve/client";
 
 const ABANDONED_AFTER_MS = 90_000;
@@ -9,17 +9,17 @@ export type Thread =
 	  }
 	| {
 			status: "ready";
-			session: SessionState;
+			session: ClientSessionState;
 			events: readonly MessageStreamEvent[];
 	  }
 	| {
 			status: "working";
-			session: SessionState;
+			session: ClientSessionState;
 			events: readonly MessageStreamEvent[];
 	  }
 	| {
 			status: "ended";
-			session: SessionState;
+			session: ClientSessionState;
 			events: readonly MessageStreamEvent[];
 	  }
 	| {
@@ -33,12 +33,12 @@ export async function loadThread(
 	signal?: AbortSignal,
 ): Promise<Thread> {
 	try {
-		const snapshot = await new Client({ headers, host: "" })
-			.session({ sessionId, streamIndex: 0 })
+		const snapshot = await new Client({ headers, host: "" }).sessions
+			.attach(sessionId, { streamIndex: 0 })
 			.snapshot({ signal });
 
 		return {
-			status: classify(snapshot.session, snapshot.events),
+			status: classify(snapshot.events),
 			session: snapshot.session,
 			events: snapshot.events,
 		} as Thread;
@@ -54,13 +54,11 @@ export function offlineThread(events: readonly MessageStreamEvent[]): Thread {
 }
 
 export function classify(
-	session: SessionState,
 	events: readonly MessageStreamEvent[],
 	now: number = Date.now(),
 ): "ready" | "working" | "ended" {
-	if (session.continuationToken) return "ready";
-
 	const last = events.at(-1);
+	if (last?.type === "session.waiting") return "ready";
 	if (!last) return "ended";
 
 	if (last.type === "session.completed" || last.type === "session.failed") {

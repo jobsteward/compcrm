@@ -19,11 +19,11 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@types/node": "^22.10.0",
-		"typescript": "^5.7.0"
+		"@types/node": "^26.5.0",
+		"typescript": "^7.0.2"
 	},
 	"dependencies": {
-		"idn-hostname": "15.1.10",
+		"idn-hostname": "17.0.3",
 		"precis-wasm": "0.1.0"
 	}
 }
