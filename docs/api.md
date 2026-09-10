@@ -127,7 +127,14 @@ self-hoster's admin cannot redeploy.
 - `organizationProvisioning: { disabled: true }` prevents SSO from creating tenants.
   Administrators create the organization and owner membership first.
 
-## tRPC is the data surface; REST is auth and health only
+## tRPC is the data surface; REST is auth, health, and Home
+
+`GET /home` is a Nest controller at the API root. It returns one JobSteward
+command snapshot for the signed-in user, assembled from open deals, waiting
+agent runs, and that user's open tasks. It is not a tRPC procedure and it is
+not the dashboard.
+
+---
 
 ### Three credentials, one principal
 
