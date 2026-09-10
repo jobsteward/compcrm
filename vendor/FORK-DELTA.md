@@ -11,7 +11,7 @@ The deltas below live in that branch, not in this repository.
 
 - Fork: https://github.com/romanbsd/kaneo
 - Branch: `crm-integration`
-- Pinned commit: `b99b332b963f49087247cab29b70d3e03598b2c0`
+- Pinned commit: `bfa867bba54d8f2ec0a8e376fe4f4b81969dd97c`
 - Based on upstream: `46539164c68669cec15b1528835c10ad0a66355e`
 
 ## Updating the submodule
@@ -61,3 +61,5 @@ pull requests; only fork-specific or unmerged changes are listed.
 | Renamed shared auth table columns (`user`, `session`, `account`, `verification`, `apikey`) to camelCase in `apps/api/src/database/schema.ts` | The CRM owns these tables with camelCase physical names; kaneo's auth reads them | — |
 | Gated the startup Drizzle migrations and schema utilities behind `KANEO_SKIP_DRIZZLE_MIGRATIONS` in `apps/api/src/index.ts` | Prisma owns the schema; kaneo's own migrator must not run against the shared database | — |
 | Set `advanced.cookiePrefix: "crm"` in `apps/api/src/auth.ts` | Shares the CRM's session cookie; one session token valid at both apps (same secret and session table) | — |
+| Dropped `team.member_count` and `team_member.membership_key` from drizzle | Prisma `Team`/`TeamMember` never stored them; drizzle now matches the shared schema | — |
+| `resolve-database-url` prefers `TEST_DATABASE_URL` | Kaneo's Drizzle and the CRM's Prisma share the test database under the repo test convention | — |
