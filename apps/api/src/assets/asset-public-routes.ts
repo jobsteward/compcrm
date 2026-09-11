@@ -1,5 +1,5 @@
 const assetPath =
-	/^\/(?:projects|customers)\/[^/]+\/(?:assets|asset-uploads)(?:\/|$)/i;
+	/^\/(?:assets(?:\/|$)|(?:projects|appointments)\/[^/]+\/assets(?:\/|$))/i;
 const appointmentPath = /^\/projects\/[^/]+\/appointments(?:\/|$)/i;
 
 export function isProjectResourcePath(path: string): boolean {

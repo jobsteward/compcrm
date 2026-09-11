@@ -13,6 +13,7 @@ const rawMutationNumbers = z.object({
 	sizeBytes: z.number().optional(),
 	durationMilliseconds: z.number().nullable().optional(),
 	expectedVersion: z.number().optional(),
+	uploadCompleted: z.literal(true).optional(),
 });
 type AssetFailure = {
 	status: number;
@@ -57,9 +58,13 @@ export function prepareAssetRestResponse(req: Request, res: Response): void {
 export function validateAssetRestRequest(req: Request): void {
 	if (!requests.has(req)) return;
 	const url = new URL(req.originalUrl, "http://localhost");
-	const forbiddenQuery = ["customerId", "uploadId", "assetId", "appointmentId"];
-	if (!/^\/customers\/[^/]+\/assets\/?$/i.test(url.pathname))
-		forbiddenQuery.push("projectId");
+	const forbiddenQuery = [
+		"customerId",
+		"projectId",
+		"uploadId",
+		"assetId",
+		"appointmentId",
+	];
 	if (forbiddenQuery.some((key) => url.searchParams.has(key))) {
 		throw new AssetError(
 			400,

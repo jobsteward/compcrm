@@ -14,7 +14,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { projectApi } from "@/lib/project-assets/client";
 import { assetQuery } from "@/lib/project-assets/queries";
-import type { Appointment, Asset } from "@/lib/project-assets/schemas";
+import type { Asset } from "@/lib/project-assets/schemas";
 import {
 	operationKey,
 	ProjectAssetsApiError,
@@ -25,7 +25,6 @@ function draftFor(asset: Asset): AssetEditorDraft {
 	return {
 		fileName: asset.fileName,
 		kind: asset.kind,
-		activityId: asset.activityId ?? "none",
 	};
 }
 
@@ -33,14 +32,12 @@ export function AssetEditorDialog({
 	projectId,
 	assetId,
 	open,
-	appointments,
 	onOpenChange,
 	onSaved,
 }: {
 	projectId: string;
 	assetId: string | null;
 	open: boolean;
-	appointments: Appointment[];
 	onOpenChange: (open: boolean) => void;
 	onSaved: (asset: Asset) => void;
 }) {
@@ -78,16 +75,12 @@ export function AssetEditorDialog({
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Edit file metadata</DialogTitle>
-					<DialogDescription>
-						Change labels or the collection appointment. File bytes stay
-						unchanged.
-					</DialogDescription>
+					<DialogDescription>Change the file name or kind.</DialogDescription>
 				</DialogHeader>
 				<AssetEditorForm
 					key={asset.id}
 					projectId={projectId}
 					asset={asset}
-					appointments={appointments}
 					onOpenChange={onOpenChange}
 					onSaved={onSaved}
 				/>
@@ -99,13 +92,11 @@ export function AssetEditorDialog({
 function AssetEditorForm({
 	projectId,
 	asset,
-	appointments,
 	onOpenChange,
 	onSaved,
 }: {
 	projectId: string;
 	asset: Asset;
-	appointments: Appointment[];
 	onOpenChange: (open: boolean) => void;
 	onSaved: (asset: Asset) => void;
 }) {
@@ -119,13 +110,11 @@ function AssetEditorForm({
 			const key = requestKey.current ?? operationKey();
 			requestKey.current = key;
 			return projectApi.updateAsset(
-				projectId,
 				asset.id,
 				{
 					expectedVersion: draftVersion.current,
 					fileName: draft.fileName.trim(),
 					kind: draft.kind.trim(),
-					activityId: draft.activityId === "none" ? null : draft.activityId,
 				},
 				key,
 			);
@@ -162,7 +151,6 @@ function AssetEditorForm({
 	return (
 		<AssetEditorView
 			draft={draft}
-			appointments={appointments}
 			error={error}
 			latestVersion={latest.data?.asset?.version}
 			editable={asset.status === "READY" || asset.status === "UNVERIFIED"}

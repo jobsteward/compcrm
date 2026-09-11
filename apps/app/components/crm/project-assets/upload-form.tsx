@@ -23,20 +23,20 @@ import { useState } from "react";
 import type { Appointment } from "@/lib/project-assets/schemas";
 
 export function UploadForm({
-	activityId,
+	appointmentId,
 	appointments,
 	onClose,
 	onSubmit,
 }: {
-	activityId: string | null;
+	appointmentId: string | null;
 	appointments: Appointment[];
 	onClose: () => void;
-	onSubmit: (files: File[], kind: string, activityId: string | null) => void;
+	onSubmit: (files: File[], kind: string, appointmentId: string | null) => void;
 }) {
 	const [files, setFiles] = useState<File[]>([]);
 	const [kind, setKind] = useState("document");
-	const [selectedActivity, setSelectedActivity] = useState(
-		activityId ?? "none",
+	const [selectedAppointment, setSelectedAppointment] = useState(
+		appointmentId ?? "none",
 	);
 	return (
 		<Dialog
@@ -87,8 +87,8 @@ export function UploadForm({
 							Collection appointment
 						</FieldLabel>
 						<Select
-							value={selectedActivity}
-							onValueChange={setSelectedActivity}
+							value={selectedAppointment}
+							onValueChange={setSelectedAppointment}
 						>
 							<SelectTrigger id="project-file-appointment">
 								<SelectValue placeholder="No appointment" />
@@ -118,7 +118,7 @@ export function UploadForm({
 							onSubmit(
 								files,
 								kind,
-								selectedActivity === "none" ? null : selectedActivity,
+								selectedAppointment === "none" ? null : selectedAppointment,
 							)
 						}
 					>

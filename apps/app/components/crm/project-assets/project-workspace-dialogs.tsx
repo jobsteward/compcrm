@@ -35,7 +35,7 @@ export function ProjectWorkspaceDialogs({
 	appointmentForm: { open: boolean; appointment: Appointment | null };
 	onAppointmentFormOpenChange: (open: boolean) => void;
 	onAppointmentSaved: (appointment: Appointment) => void;
-	upload: { open: boolean; activityId: string | null };
+	upload: { open: boolean; appointmentId: string | null };
 	onUploadOpenChange: (open: boolean) => void;
 	onAssetsChanged: () => void;
 	assetEditorId: string | null;
@@ -64,7 +64,7 @@ export function ProjectWorkspaceDialogs({
 			<UploadDialog
 				projectId={projectId}
 				open={upload.open}
-				activityId={upload.activityId}
+				appointmentId={upload.appointmentId}
 				appointments={appointments}
 				onOpenChange={onUploadOpenChange}
 				onAssetsChanged={onAssetsChanged}
@@ -75,7 +75,6 @@ export function ProjectWorkspaceDialogs({
 					projectId={projectId}
 					assetId={assetEditorId}
 					open
-					appointments={appointments}
 					onOpenChange={onAssetEditorOpenChange}
 					onSaved={onAssetSaved}
 				/>

@@ -3,25 +3,20 @@ import type {
 	AppointmentStatus,
 	AppointmentUpdateBody,
 	Asset,
+	AssetCreateBody,
+	AssetCreation,
 	AssetUpdateBody,
-	UploadCreateBody,
-	UploadGrant,
-	UploadState,
 } from "./schemas";
 import {
 	appointmentArchiveSchema,
 	appointmentDetailSchema,
 	appointmentListSchema,
+	assetCreationSchema,
 	assetDeletionSchema,
 	assetDetailSchema,
-	assetDownloadSchema,
 	assetListSchema,
-	uploadCancellationSchema,
-	uploadConfirmationSchema,
-	uploadGrantSchema,
-	uploadStateSchema,
 } from "./schemas";
-import { projectPath, query, request, statusPath } from "./transport";
+import { projectPath, query, request } from "./transport";
 
 export type AppointmentFilters = {
 	page: number;
@@ -36,7 +31,7 @@ export type AppointmentFilters = {
 export type AssetFilters = {
 	page: number;
 	pageSize: number;
-	activityId?: string;
+	appointmentId?: string;
 	kind?: string;
 	source?: "MANUAL" | "MOBILE_RECORDING" | "EMAIL_ATTACHMENT";
 };
@@ -90,87 +85,54 @@ export const projectApi = {
 		);
 	},
 	listAssets(projectId: string, filters: AssetFilters) {
-		const suffix = query(filters);
-		return request(
-			`${projectPath(projectId, "assets")}${suffix ? `?${suffix}` : ""}`,
-			assetListSchema,
-		);
+		const { appointmentId, ...params } = filters;
+		const path = appointmentId
+			? `/appointments/${encodeURIComponent(appointmentId)}/assets`
+			: projectPath(projectId, "assets");
+		const suffix = query(params);
+		return request(`${path}${suffix ? `?${suffix}` : ""}`, assetListSchema);
 	},
-	getAsset(projectId: string, assetId: string) {
-		return request(
-			`${projectPath(projectId, "assets")}/${encodeURIComponent(assetId)}`,
-			assetDetailSchema,
-		);
+	getAsset(assetId: string) {
+		return request(`/assets/${encodeURIComponent(assetId)}`, assetDetailSchema);
 	},
-	updateAsset(
-		projectId: string,
-		assetId: string,
-		body: AssetUpdateBody,
-		idempotencyKey: string,
-	) {
+	updateAsset(assetId: string, body: AssetUpdateBody, idempotencyKey: string) {
 		return request(
-			`${projectPath(projectId, "assets")}/${encodeURIComponent(assetId)}`,
+			`/assets/${encodeURIComponent(assetId)}`,
 			assetDetailSchema,
 			{ method: "PATCH", body, idempotencyKey },
 		);
 	},
-	downloadAsset(projectId: string, assetId: string) {
+	deleteAsset(assetId: string, idempotencyKey: string) {
 		return request(
-			`${projectPath(projectId, "assets")}/${encodeURIComponent(assetId)}/download`,
-			assetDownloadSchema,
-		);
-	},
-	deleteAsset(projectId: string, assetId: string, idempotencyKey: string) {
-		return request(
-			`${projectPath(projectId, "assets")}/${encodeURIComponent(assetId)}`,
+			`/assets/${encodeURIComponent(assetId)}`,
 			assetDeletionSchema,
 			{ method: "DELETE", idempotencyKey },
 		);
 	},
-	createUpload(
+	createProjectAsset(
 		projectId: string,
-		body: UploadCreateBody,
+		body: AssetCreateBody,
 		idempotencyKey: string,
-	): Promise<UploadGrant> {
-		return request(projectPath(projectId, "asset-uploads"), uploadGrantSchema, {
+	) {
+		return request(projectPath(projectId, "assets"), assetCreationSchema, {
 			method: "POST",
 			body,
 			idempotencyKey,
 		});
 	},
-	getUpload(projectId: string, uploadId: string): Promise<UploadState> {
-		return request(
-			`${projectPath(projectId, "asset-uploads")}/${encodeURIComponent(uploadId)}`,
-			uploadStateSchema,
-		);
-	},
-	renewUpload(
-		projectId: string,
-		uploadId: string,
+	createAppointmentAsset(
+		appointmentId: string,
+		body: AssetCreateBody,
 		idempotencyKey: string,
-	): Promise<UploadGrant> {
+	) {
 		return request(
-			`${projectPath(projectId, "asset-uploads")}/${encodeURIComponent(uploadId)}/url`,
-			uploadGrantSchema,
-			{ method: "POST", body: {}, idempotencyKey },
-		);
-	},
-	confirmUpload(projectId: string, uploadId: string, idempotencyKey: string) {
-		return request(
-			`${projectPath(projectId, "asset-uploads")}/${encodeURIComponent(uploadId)}/confirm`,
-			uploadConfirmationSchema,
-			{ method: "POST", body: {}, idempotencyKey },
-		);
-	},
-	cancelUpload(projectId: string, uploadId: string, idempotencyKey: string) {
-		return request(
-			`${projectPath(projectId, "asset-uploads")}/${encodeURIComponent(uploadId)}`,
-			uploadCancellationSchema,
-			{ method: "DELETE", idempotencyKey },
+			`/appointments/${encodeURIComponent(appointmentId)}/assets`,
+			assetCreationSchema,
+			{ method: "POST", body, idempotencyKey },
 		);
 	},
 	putTransfer(
-		transfer: NonNullable<UploadGrant["transfer"]>,
+		transfer: NonNullable<AssetCreation["transfer"]>,
 		file: File,
 		signal?: AbortSignal,
 	) {
@@ -184,10 +146,5 @@ export const projectApi = {
 			if (!response.ok) throw new Error("The file transfer failed.");
 		});
 	},
-	pollUpload(path: string) {
-		return request(path, uploadStateSchema);
-	},
-	statusPath,
 };
-
 export type { AppointmentStatus, Asset };

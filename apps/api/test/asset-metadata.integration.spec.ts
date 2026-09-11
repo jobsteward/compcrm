@@ -18,8 +18,6 @@ let fixture: AssetsCoreFixture;
 let service: AssetsCoreFixture["service"];
 let worker: AssetsCoreFixture["worker"];
 let actor: AssetsCoreFixture["actor"];
-let userId: string;
-let projectId: string;
 let create: AssetsCoreFixture["create"];
 let put: AssetsCoreFixture["put"];
 let ready: AssetsCoreFixture["ready"];
@@ -35,8 +33,6 @@ describe("asset metadata updates", () => {
 		service = fixture.service;
 		worker = fixture.worker;
 		actor = fixture.actor;
-		userId = fixture.userId;
-		projectId = fixture.projectId;
 		create = fixture.create.bind(fixture);
 		put = fixture.put.bind(fixture);
 		ready = fixture.ready.bind(fixture);
@@ -51,50 +47,36 @@ describe("asset metadata updates", () => {
 	});
 
 	it("updates editable metadata and preserves upload fields", async () => {
-		const collection = await db.activity.create({
-			data: {
-				type: "MEETING",
-				dealId: projectId,
-				createdById: userId,
-				subject: "Site visit",
-			},
-		});
 		const created = await create({
 			fileName: "before.bin",
 			kind: "document",
-			activityId: collection.id,
 			sizeBytes: 4,
 		});
 		await put(created.upload.id);
-		await service.confirmUpload(
+		await service.updateAsset(
 			actor,
-			projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			randomUUID(),
 		);
 		await worker.process();
 		const before = await db.artifact.findUniqueOrThrow({
-			where: {
-				id: (await service.getUpload(actor, projectId, created.upload.id))
-					.upload.assetId as string,
-			},
+			where: { id: created.asset.id },
 		});
 		const updated = await service.updateAsset(
 			actor,
-			projectId,
 			before.id,
 			{
 				expectedVersion: 1,
 				fileName: "after.jpg",
 				kind: "photo",
-				activityId: null,
 			},
 			randomUUID(),
 		);
 		expect(updated.asset).toMatchObject({
 			fileName: "after.jpg",
 			kind: "photo",
-			activityId: null,
+			appointmentId: null,
 			status: "READY",
 			version: 2,
 		});
@@ -117,7 +99,6 @@ describe("asset metadata updates", () => {
 		await expect(
 			service.updateAsset(
 				actor,
-				projectId,
 				assetId,
 				{
 					expectedVersion: "1" as never,
@@ -128,7 +109,6 @@ describe("asset metadata updates", () => {
 		).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
 		const first = await service.updateAsset(
 			actor,
-			projectId,
 			assetId,
 			{
 				expectedVersion: 1,
@@ -140,7 +120,6 @@ describe("asset metadata updates", () => {
 		await expect(
 			service.updateAsset(
 				actor,
-				projectId,
 				assetId,
 				{
 					expectedVersion: 1,
@@ -156,14 +135,12 @@ describe("asset metadata updates", () => {
 		const results = await Promise.allSettled([
 			service.updateAsset(
 				actor,
-				projectId,
 				assetId,
 				{ expectedVersion: 1, fileName: "first.bin" },
 				randomUUID(),
 			),
 			service.updateAsset(
 				actor,
-				projectId,
 				assetId,
 				{ expectedVersion: 1, kind: "photo" },
 				randomUUID(),

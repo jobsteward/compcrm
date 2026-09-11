@@ -4,7 +4,7 @@ This document describes the HTTP API exposed by the CRM API process.
 
 It covers authentication, authorization, tRPC, REST, native controllers, and internal routes.
 
-Verified on 2026-09-10 against the current source and generated router.
+Verified on 2026-09-11 against the current source and generated router.
 
 > [!WARNING]
 > The process mounts more routes than the supported CRM contract.
@@ -24,18 +24,18 @@ Verified on 2026-09-10 against the current source and generated router.
 
 | Surface | Base path | Count | Primary purpose |
 | --- | --- | ---: | --- |
-| tRPC | `/api/trpc` | 177 procedures | Type-safe application data API |
-| REST bridge | Root resource paths | 175 operations | OpenAPI transport for tRPC procedures |
+| tRPC | `/api/trpc` | 173 procedures | Type-safe application data API |
+| REST bridge | Root resource paths | 171 operations | OpenAPI transport for tRPC procedures |
 | Better Auth | `/api/auth` | Version-dependent | Sign-in, sessions, OAuth, providers, and plugin endpoints |
 | Native controllers | Various paths | 18 operations | Health, profile, tracking, attachments, and cron work |
 | Swagger UI | `/` | 1 page | Interactive REST documentation |
 | OpenAPI JSON | `/openapi.json` | 1 document | Native controllers and REST bridge |
 
-The merged OpenAPI document contains 160 paths, including native controller paths and 175 REST operations.
+The merged OpenAPI document contains 156 paths, including native controller paths and 171 REST operations.
 
 The tRPC router contains 23 namespaces.
 
-The REST bridge exposes 175 of 177 procedures. It omits `users.me` and `workspace.gate`.
+The REST bridge exposes 171 of 173 procedures. It omits `users.me` and `workspace.gate`.
 
 The native `GET /auth/me` endpoint provides the equivalent profile operation.
 
@@ -1232,17 +1232,13 @@ The input and output names refer to Zod schemas in router contract modules.
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `assets.createUpload` | mutation | `POST /projects/{projectId}/asset-uploads` | `projectUploadCreateInput` | `uploadGrantSchema` | session-or-api-key |
-| `assets.getUpload` | query | `GET /projects/{projectId}/asset-uploads/{uploadId}` | `projectUploadInput` | `uploadStateSchema` | session-or-api-key |
-| `assets.renewUpload` | mutation | `POST /projects/{projectId}/asset-uploads/{uploadId}/url` | `projectUploadInput` | `uploadGrantSchema` | session-or-api-key |
-| `assets.confirmUpload` | mutation | `POST /projects/{projectId}/asset-uploads/{uploadId}/confirm` | `projectUploadInput` | `uploadConfirmationSchema` | session-or-api-key |
-| `assets.cancelUpload` | mutation | `DELETE /projects/{projectId}/asset-uploads/{uploadId}` | `projectUploadInput` | `uploadCancellationSchema` | session-or-api-key |
-| `assets.listCustomerAssets` | query | `GET /customers/{customerId}/assets` | `customerAssetListArgs` | `assetListSchema` | session-or-api-key |
+| `assets.createProjectAsset` | mutation | `POST /projects/{projectId}/assets` | `projectAssetCreateInput` | `assetCreationSchema` | session-or-api-key |
+| `assets.createAppointmentAsset` | mutation | `POST /appointments/{appointmentId}/assets` | `appointmentAssetCreateInput` | `assetCreationSchema` | session-or-api-key |
 | `assets.listProjectAssets` | query | `GET /projects/{projectId}/assets` | `projectAssetListInput` | `assetListSchema` | session-or-api-key |
-| `assets.getAsset` | query | `GET /projects/{projectId}/assets/{assetId}` | `projectAssetInput` | `assetDetailSchema` | session-or-api-key |
-| `assets.updateAsset` | mutation | `PATCH /projects/{projectId}/assets/{assetId}` | `projectAssetMetadataUpdateInput` | `assetDetailSchema` | session-or-api-key |
-| `assets.downloadAsset` | query | `GET /projects/{projectId}/assets/{assetId}/download` | `projectAssetInput` | `assetDownloadSchema` | session-or-api-key |
-| `assets.deleteAsset` | mutation | `DELETE /projects/{projectId}/assets/{assetId}` | `projectAssetInput` | `assetDeletionSchema` | session-or-api-key |
+| `assets.listAppointmentAssets` | query | `GET /appointments/{appointmentId}/assets` | `appointmentAssetListInput` | `assetListSchema` | session-or-api-key |
+| `assets.getAsset` | query | `GET /assets/{assetId}` | `assetMemberInput` | `assetDetailSchema` | session-or-api-key |
+| `assets.updateAsset` | mutation | `PATCH /assets/{assetId}` | `assetUpdateInput` | `assetDetailSchema` | session-or-api-key |
+| `assets.deleteAsset` | mutation | `DELETE /assets/{assetId}` | `assetMemberInput` | `assetDeletionSchema` | session-or-api-key |
 
 ### `companies`
 
@@ -1475,10 +1471,10 @@ The input and output names refer to Zod schemas in router contract modules.
 
 | Evidence | Finding | Source path |
 | --- | --- | --- |
-| tRPC router AST contains 177 decorated procedures | The application exposes 177 tRPC procedures | `apps/api/src/**/*.router.ts` |
-| Generated router contains 177 procedure definitions | Generated client types match the router count | `apps/api/src/generated/server.ts` |
-| 159 procedures use `restMeta`, 11 asset procedures, and 5 appointment procedures carry REST metadata | The REST bridge exposes 175 root-path operations | `apps/api/src/**/*.router.ts`, `apps/api/src/assets/asset-openapi.ts`, `apps/api/src/appointments/appointment-openapi.ts` |
-| Merged runtime OpenAPI contains 160 paths | The document includes native controller paths and 175 REST operations | `/openapi.json` |
+| tRPC router AST contains 173 decorated procedures | The application exposes 173 tRPC procedures | `apps/api/src/**/*.router.ts` |
+| Generated router contains 173 procedure definitions | Generated client types match the router count | `apps/api/src/generated/server.ts` |
+| 159 procedures use `restMeta`, 7 asset procedures, and 5 appointment procedures carry REST metadata | The REST bridge exposes 171 root-path operations | `apps/api/src/**/*.router.ts`, `apps/api/src/assets/asset-openapi.ts`, `apps/api/src/appointments/appointment-openapi.ts` |
+| Merged runtime OpenAPI contains 156 paths | The document includes native controller paths and 171 REST operations | `/openapi.json` |
 | Better Auth installs session, OAuth, SSO, and API-key plugins | Better Auth mounts a larger protocol surface | `packages/auth/src/auth.ts` |
 | `AuthMiddleware` requires a request principal | Protected tRPC routes reject anonymous access | `apps/api/src/trpc/middlewares/auth.middleware.ts` |
 | `SessionOnlyMiddleware` requires a session principal | API-key management requires browser sessions | `apps/api/src/trpc/middlewares/session-only.middleware.ts` |

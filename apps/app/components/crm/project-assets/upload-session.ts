@@ -1,4 +1,4 @@
-import type { UploadGrant } from "@/lib/project-assets/schemas";
+import type { AssetCreation } from "@/lib/project-assets/schemas";
 
 export type UploadItemStatus =
 	| "QUEUED"
@@ -6,21 +6,19 @@ export type UploadItemStatus =
 	| "FINALIZING"
 	| "READY"
 	| "FAILED"
-	| "CANCELED"
-	| "EXPIRED";
+	| "CANCELED";
 
 export type UploadItem = {
 	id: string;
 	file: File;
 	kind: string;
-	activityId: string | null;
+	appointmentId: string | null;
 	createKey: string;
-	renewKey: string;
-	confirmKey: string;
-	cancelKey: string;
-	uploadId: string | null;
+	completeKey: string;
+	deleteKey: string;
+	transferred: boolean;
 	assetId: string | null;
-	transfer: UploadGrant["transfer"];
+	transfer: AssetCreation["transfer"];
 	status: UploadItemStatus;
 	error: string | null;
 };

@@ -1,117 +1,107 @@
 import type { Db } from "@crm/db";
 import { Injectable } from "@nestjs/common";
 import { InjectScopedDatabase } from "../database/database.constants";
-import { type AssetActor, assetActorKey } from "./asset-actor";
+import type { AssetActor } from "./asset-actor";
 import { AssetCatalog } from "./asset-catalog.service";
+import { appointmentProjectId, assetProjectId } from "./asset-context.service";
 import { AssetFiles } from "./asset-files.service";
 import type { AssetMetadataUpdateInput } from "./asset-metadata.contracts";
 import { AssetMetadataService } from "./asset-metadata.service";
 import { AssetMutations } from "./asset-mutation.service";
-import { uploadResponse } from "./asset-responses";
 import { AssetStorageService } from "./asset-storage.service";
-import { AssetUploadCreation } from "./asset-upload-create.service";
-import { AssetUploads } from "./asset-uploads.service";
-import type { AssetListInput, CreateUploadInput } from "./assets.contracts";
+import { AssetTransfers } from "./asset-transfer.service";
+import { AssetCreation } from "./asset-upload-create.service";
+import type { AssetListInput, CreateAssetInput } from "./assets.contracts";
 
-export { type AssetActor, assetActorKey, uploadResponse };
+export type { AssetActor } from "./asset-actor";
 
 @Injectable()
 export class AssetsService {
-	private readonly creation: AssetUploadCreation;
-	private readonly uploads: AssetUploads;
+	private readonly creation: AssetCreation;
+	private readonly transfers: AssetTransfers;
 	private readonly catalog: AssetCatalog;
 	private readonly files: AssetFiles;
 	private readonly metadata: AssetMetadataService;
 
-	constructor(@InjectScopedDatabase() db: Db, storage: AssetStorageService) {
+	constructor(
+		@InjectScopedDatabase() private readonly db: Db,
+		storage: AssetStorageService,
+	) {
 		const mutations = new AssetMutations(db);
-		this.creation = new AssetUploadCreation(mutations, storage);
-		this.uploads = new AssetUploads(db, storage, mutations);
-		this.catalog = new AssetCatalog(db);
-		this.files = new AssetFiles(db, storage, mutations);
-		this.metadata = new AssetMetadataService(mutations);
+		this.creation = new AssetCreation(mutations, storage);
+		this.transfers = new AssetTransfers(db, storage);
+		this.catalog = new AssetCatalog(db, storage);
+		this.files = new AssetFiles(mutations);
+		this.metadata = new AssetMetadataService(mutations, storage);
 	}
 
-	async createUpload(
+	async createProjectAsset(
 		actor: AssetActor,
 		projectId: string,
-		raw: CreateUploadInput,
+		raw: CreateAssetInput,
 		key: string,
 	) {
-		return this.creation.createUpload(actor, projectId, raw, key);
+		return this.create(actor, projectId, raw, key);
 	}
 
-	async getUpload(actor: AssetActor, projectId: string, uploadId: string) {
-		return this.uploads.getUpload(actor, projectId, uploadId);
-	}
-
-	async renewUpload(
+	async createAppointmentAsset(
 		actor: AssetActor,
-		projectId: string,
-		uploadId: string,
+		appointmentId: string,
+		raw: CreateAssetInput,
 		key: string,
 	) {
-		return this.uploads.renewUpload(actor, projectId, uploadId, key);
+		const projectId = await appointmentProjectId(this.db, actor, appointmentId);
+		return this.create(actor, projectId, raw, key, appointmentId);
 	}
 
-	async confirmUpload(
+	private async create(
 		actor: AssetActor,
 		projectId: string,
-		uploadId: string,
+		raw: CreateAssetInput,
 		key: string,
+		appointmentId?: string,
 	) {
-		return this.uploads.confirmUpload(actor, projectId, uploadId, key);
+		const { assetId } = await this.creation.createAsset(
+			actor,
+			projectId,
+			raw,
+			key,
+			appointmentId,
+		);
+		const transfer = await this.transfers.issue(actor, projectId, assetId);
+		return { ...(await this.catalog.getAsset(actor, assetId)), transfer };
 	}
 
-	async cancelUpload(
-		actor: AssetActor,
-		projectId: string,
-		uploadId: string,
-		key: string,
-	) {
-		return this.uploads.cancelUpload(actor, projectId, uploadId, key);
-	}
-
-	async listCustomerAssets(
-		actor: AssetActor,
-		customerId: string,
-		raw: AssetListInput,
-	) {
-		return this.catalog.listCustomerAssets(actor, customerId, raw);
-	}
-
-	async listProjectAssets(
-		actor: AssetActor,
-		projectId: string,
-		raw: AssetListInput,
-	) {
+	listProjectAssets(actor: AssetActor, projectId: string, raw: AssetListInput) {
 		return this.catalog.listProjectAssets(actor, projectId, raw);
 	}
 
-	async getAsset(actor: AssetActor, projectId: string, assetId: string) {
-		return this.catalog.getAsset(actor, projectId, assetId);
+	async listAppointmentAssets(
+		actor: AssetActor,
+		appointmentId: string,
+		raw: AssetListInput,
+	) {
+		const projectId = await appointmentProjectId(this.db, actor, appointmentId);
+		return this.catalog.listProjectAssets(actor, projectId, raw, appointmentId);
+	}
+
+	getAsset(actor: AssetActor, assetId: string) {
+		return this.catalog.getAsset(actor, assetId);
 	}
 
 	async updateAsset(
 		actor: AssetActor,
-		projectId: string,
 		assetId: string,
 		raw: AssetMetadataUpdateInput,
 		key: string,
 	) {
-		return this.metadata.updateAsset(actor, projectId, assetId, raw, key);
+		const projectId = await assetProjectId(this.db, actor, assetId);
+		await this.metadata.updateAsset(actor, projectId, assetId, raw, key);
+		return this.catalog.getAsset(actor, assetId);
 	}
 
-	async downloadAsset(actor: AssetActor, projectId: string, assetId: string) {
-		return this.files.downloadAsset(actor, projectId, assetId);
-	}
-
-	async deleteAsset(
-		actor: AssetActor,
-		projectId: string,
-		assetId: string,
-		key: string,
-	) {
+	async deleteAsset(actor: AssetActor, assetId: string, key: string) {
+		const projectId = await assetProjectId(this.db, actor, assetId);
 		return this.files.deleteAsset(actor, projectId, assetId, key);
 	}
 }

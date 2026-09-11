@@ -57,22 +57,19 @@ describe("stored asset storage keys", () => {
 	it("denies a first tenant's upload from a second tenant", async () => {
 		const created = await fixture.create();
 		await fixture.put(created.upload.id);
-		await fixture.service.confirmUpload(
+		await fixture.service.updateAsset(
 			fixture.actor,
-			fixture.projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			randomUUID(),
 		);
 		await fixture.due();
 		await fixture.worker.process();
-		const ready = await fixture.service.getUpload(
+		const ready = await fixture.service.getAsset(
 			fixture.actor,
-			fixture.projectId,
-			created.upload.id,
+			created.asset.id,
 		);
-		expect(ready.upload.status).toBe("READY");
-		if (!ready.upload.assetId) throw new Error("The asset ID is missing.");
-		const assetId = ready.upload.assetId;
+		expect(ready.asset.status).toBe("READY");
 		const otherOrganizationId = `asset-key-other-${randomUUID()}`;
 		await rawDb.organization.create({
 			data: {
@@ -85,7 +82,7 @@ describe("stored asset storage keys", () => {
 		try {
 			await expect(
 				runInTenant(otherOrganizationId, () =>
-					fixture.service.createUpload(
+					fixture.service.createProjectAsset(
 						fixture.actor,
 						fixture.projectId,
 						fixture.metadata(),
@@ -95,30 +92,17 @@ describe("stored asset storage keys", () => {
 			).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
 			await expect(
 				runInTenant(otherOrganizationId, () =>
-					fixture.service.confirmUpload(
+					fixture.service.updateAsset(
 						fixture.actor,
-						fixture.projectId,
-						created.upload.id,
+						created.asset.id,
+						{ uploadCompleted: true },
 						randomUUID(),
 					),
 				),
 			).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
 			await expect(
 				runInTenant(otherOrganizationId, () =>
-					fixture.service.downloadAsset(
-						fixture.actor,
-						fixture.projectId,
-						assetId,
-					),
-				),
-			).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
-			await expect(
-				runInTenant(otherOrganizationId, () =>
-					fixture.service.getUpload(
-						fixture.actor,
-						fixture.projectId,
-						created.upload.id,
-					),
+					fixture.service.getAsset(fixture.actor, created.asset.id),
 				),
 			).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
 		} finally {
@@ -126,24 +110,23 @@ describe("stored asset storage keys", () => {
 		}
 	});
 
-	it("reuses stored keys across idempotent creation and renewal", async () => {
+	it("reuses stored keys and refreshes the transfer on idempotent creation", async () => {
 		const key = randomUUID();
 		const first = await fixture.create({}, key);
 		const stored = await db.assetUpload.findUniqueOrThrow({
 			where: { id: first.upload.id },
 		});
+		await db.assetUpload.update({
+			where: { id: first.upload.id },
+			data: { grantExpiresAt: new Date(0), reservationUntil: new Date(0) },
+		});
 		const replay = await fixture.create({}, key);
-		const renewed = await fixture.service.renewUpload(
-			fixture.actor,
-			fixture.projectId,
-			first.upload.id,
-			randomUUID(),
-		);
 		const after = await db.assetUpload.findUniqueOrThrow({
 			where: { id: first.upload.id },
 		});
 		expect(replay.upload.id).toBe(first.upload.id);
-		expect(renewed.upload.id).toBe(first.upload.id);
+		expect(replay.transfer).not.toBeNull();
+		expect(after.grantExpiresAt.getTime()).toBeGreaterThan(0);
 		expect(after.temporaryKey).toBe(stored.temporaryKey);
 		expect(after.finalKey).toBe(stored.finalKey);
 	});
@@ -156,42 +139,31 @@ describe("stored asset storage keys", () => {
 			where: { id: created.upload.id },
 			data: { temporaryKey: legacyTemporaryKey, finalKey: legacyFinalKey },
 		});
+		await db.artifact.update({
+			where: { id: created.asset.id },
+			data: { storageKey: legacyFinalKey },
+		});
 		fixture.storage.put(legacyTemporaryKey);
-		await fixture.service.confirmUpload(
+		await fixture.service.updateAsset(
 			fixture.actor,
-			fixture.projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			randomUUID(),
 		);
 		await fixture.due();
 		await fixture.worker.process();
-		const ready = await fixture.service.getUpload(
+		const ready = await fixture.service.getAsset(
 			fixture.actor,
-			fixture.projectId,
-			created.upload.id,
+			created.asset.id,
 		);
-		expect(ready.upload.status).toBe("READY");
-		if (!ready.upload.assetId) throw new Error("The asset ID is missing.");
-		const assetId = ready.upload.assetId;
+		expect(ready.asset.status).toBe("READY");
+		const assetId = ready.asset.id;
 		const asset = await db.artifact.findUniqueOrThrow({
 			where: { id: assetId },
 		});
 		expect(asset.storageKey).toBe(legacyFinalKey);
-		expect(
-			(
-				await fixture.service.downloadAsset(
-					fixture.actor,
-					fixture.projectId,
-					assetId,
-				)
-			).url,
-		).toContain(legacyFinalKey);
-		await fixture.service.deleteAsset(
-			fixture.actor,
-			fixture.projectId,
-			assetId,
-			randomUUID(),
-		);
+		expect(ready.download?.url).toContain(legacyFinalKey);
+		await fixture.service.deleteAsset(fixture.actor, assetId, randomUUID());
 		await fixture.due();
 		await fixture.worker.process();
 		expect(fixture.storage.objects.has(legacyFinalKey)).toBe(false);

@@ -64,9 +64,9 @@ export function AssetsList({
 			</div>
 			<div className="grid gap-2 sm:grid-cols-3">
 				<Select
-					value={filters.activityId ?? "all"}
+					value={filters.appointmentId ?? "all"}
 					onValueChange={(value) =>
-						patch({ activityId: value === "all" ? undefined : value })
+						patch({ appointmentId: value === "all" ? undefined : value })
 					}
 				>
 					<SelectTrigger aria-label="File appointment">

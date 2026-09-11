@@ -4,48 +4,32 @@ import request from "supertest";
 import { AssetsHttpFixture } from "./assets-http.fixture";
 
 let fixture: AssetsHttpFixture;
-let app: AssetsHttpFixture["app"];
-let userId: AssetsHttpFixture["userId"];
-let otherProjectId: AssetsHttpFixture["otherProjectId"];
-let customerId: AssetsHttpFixture["customerId"];
-let base: AssetsHttpFixture["base"];
-let metadata: AssetsHttpFixture["metadata"];
 
 describe("Asset HTTP authentication and validation", () => {
 	beforeAll(async () => {
 		fixture = new AssetsHttpFixture();
 		await fixture.setup();
-		app = fixture.app;
-		userId = fixture.userId;
-		otherProjectId = fixture.otherProjectId;
-		customerId = fixture.customerId;
-		base = fixture.base;
-		metadata = fixture.metadata;
 	});
 
 	afterAll(async () => {
 		await fixture.cleanup();
 	});
 
-	it("protects all ten endpoints and returns the versioned error envelope", async () => {
+	it("protects the exact seven asset endpoints with the error envelope", async () => {
 		const endpoints = [
-			["post", `${base}/asset-uploads`],
-			["get", `${base}/asset-uploads/upload`],
-			["post", `${base}/asset-uploads/upload/url`],
-			["post", `${base}/asset-uploads/upload/confirm`],
-			["delete", `${base}/asset-uploads/upload`],
-			["get", `/customers/${customerId}/assets`],
-			["get", `${base}/assets`],
-			["get", `${base}/assets/asset`],
-			["get", `${base}/assets/asset/download`],
-			["delete", `${base}/assets/asset`],
+			["post", `${fixture.base}/assets`, fixture.metadata],
+			["get", `${fixture.base}/assets`, undefined],
+			["post", "/appointments/missing/assets", fixture.metadata],
+			["get", "/appointments/missing/assets", undefined],
+			["get", "/assets/missing", undefined],
+			["patch", "/assets/missing", { uploadCompleted: true }],
+			["delete", "/assets/missing", undefined],
 		] as const;
-		for (const [method, path] of endpoints) {
-			const call = request(app.getHttpServer())
+		for (const [method, path, body] of endpoints) {
+			const call = request(fixture.app.getHttpServer())
 				[method](path)
 				.set("X-Request-Id", "asset-request-test");
-			if (method === "post")
-				call.send(path.endsWith("asset-uploads") ? metadata : {});
+			if (body) call.send(body);
 			const response = await call.expect(401);
 			expect(response.body).toEqual({
 				error: {
@@ -61,65 +45,86 @@ describe("Asset HTTP authentication and validation", () => {
 	});
 
 	it("enforces read and write OAuth scopes", async () => {
-		const deniedWrite = await request(app.getHttpServer())
-			.post(`${base}/asset-uploads`)
-			.set("x-asset-test-user", userId)
-			.set("x-asset-test-scope", "crm.read")
-			.set("Idempotency-Key", randomUUID())
-			.send(metadata)
-			.expect(403);
-		expect(deniedWrite.body.error.code).toBe("FORBIDDEN");
-		expect(deniedWrite.headers["www-authenticate"]).toContain("crm.write");
-		const deniedRead = await request(app.getHttpServer())
-			.get(`${base}/assets`)
-			.set("x-asset-test-user", userId)
-			.set("x-asset-test-scope", "crm.write")
-			.expect(403);
-		expect(deniedRead.body.error.code).toBe("FORBIDDEN");
+		for (const [method, path, body] of [
+			["post", `${fixture.base}/assets`, fixture.metadata],
+			["patch", "/assets/missing", { uploadCompleted: true }],
+			["delete", "/assets/missing", undefined],
+		] as const) {
+			const call = request(fixture.app.getHttpServer())
+				[method](path)
+				.set("x-asset-test-user", fixture.userId)
+				.set("x-asset-test-scope", "crm.read")
+				.set("Idempotency-Key", randomUUID());
+			if (body) call.send(body);
+			const response = await call.expect(403);
+			expect(response.body.error.code).toBe("FORBIDDEN");
+			expect(response.headers["www-authenticate"]).toContain("crm.write");
+		}
+
+		for (const path of [
+			`${fixture.base}/assets`,
+			"/appointments/missing/assets",
+			"/assets/missing",
+		]) {
+			const response = await request(fixture.app.getHttpServer())
+				.get(path)
+				.set("x-asset-test-user", fixture.userId)
+				.set("x-asset-test-scope", "crm.write")
+				.expect(403);
+			expect(response.body.error.code).toBe("FORBIDDEN");
+		}
 	});
 
-	it("rejects unknown metadata, numeric strings, path shadowing, and missing keys", async () => {
-		for (const body of [
-			{ ...metadata, extra: true },
-			{ ...metadata, sizeBytes: "0" },
-			{ ...metadata, projectId: otherProjectId },
-			{ ...metadata, fileName: "../file" },
-		]) {
-			const response = await request(app.getHttpServer())
-				.post(`${base}/asset-uploads`)
-				.set("x-asset-test-user", userId)
+	it("rejects shadowed identifiers, unknown fields, and invalid JSON numbers", async () => {
+		for (const [path, body] of [
+			[
+				`${fixture.base}/assets`,
+				{ ...fixture.metadata, projectId: fixture.otherProjectId },
+			],
+			[
+				"/appointments/missing/assets",
+				{ ...fixture.metadata, appointmentId: "shadowed" },
+			],
+			[`${fixture.base}/assets`, { ...fixture.metadata, extra: true }],
+			[`${fixture.base}/assets`, { ...fixture.metadata, sizeBytes: "4" }],
+			[`${fixture.base}/assets`, { ...fixture.metadata, fileName: "../file" }],
+		] as const) {
+			const response = await request(fixture.app.getHttpServer())
+				.post(path)
+				.set("x-asset-test-user", fixture.userId)
 				.set("Idempotency-Key", randomUUID())
 				.send(body)
 				.expect(400);
 			expect(response.body.error.code).toBe("VALIDATION_ERROR");
 		}
-		await request(app.getHttpServer())
-			.post(`${base}/asset-uploads`)
-			.set("x-asset-test-user", userId)
-			.send(metadata)
-			.expect(400);
+	});
+
+	it("rejects path identifiers in queries and requires mutation keys", async () => {
 		for (const query of [
 			"unknown=1",
-			`projectId=${otherProjectId}`,
-			"page=1.5",
+			`projectId=${fixture.otherProjectId}`,
+			"appointmentId=other",
+			"assetId=other",
 		]) {
-			const response = await request(app.getHttpServer())
-				.get(`${base}/assets?${query}`)
-				.set("x-asset-test-user", userId)
+			const response = await request(fixture.app.getHttpServer())
+				.get(`${fixture.base}/assets?${query}`)
+				.set("x-asset-test-user", fixture.userId)
 				.expect(400);
 			expect(response.body.error.code).toBe("VALIDATION_ERROR");
 		}
-		await request(app.getHttpServer())
-			.post(`${base}/asset-uploads?extra=1`)
-			.set("x-asset-test-user", userId)
-			.set("Idempotency-Key", randomUUID())
-			.send(metadata)
+		const missingKey = await request(fixture.app.getHttpServer())
+			.post(`${fixture.base}/assets`)
+			.set("x-asset-test-user", fixture.userId)
+			.send(fixture.metadata)
 			.expect(400);
-		await request(app.getHttpServer())
-			.post(`${base}/asset-uploads`)
-			.set("x-asset-test-user", userId)
+		expect(missingKey.body.error.code).toBe("VALIDATION_ERROR");
+		const invalidJson = await request(fixture.app.getHttpServer())
+			.post(`${fixture.base}/assets`)
+			.set("x-asset-test-user", fixture.userId)
+			.set("Idempotency-Key", randomUUID())
 			.set("Content-Type", "application/json")
 			.send("{")
 			.expect(400);
+		expect(invalidJson.body.error.code).toBe("VALIDATION_ERROR");
 	});
 });

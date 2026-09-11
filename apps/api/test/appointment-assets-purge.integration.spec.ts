@@ -29,7 +29,7 @@ describe("appointment and asset purge boundaries", () => {
 
 	it("purges synced calendar rows without deleting application appointments or files", async () => {
 		const { appointment } = await fixture.appointment();
-		const { assetId } = await fixture.ready({ activityId: appointment.id });
+		const { assetId } = await fixture.ready({ appointmentId: appointment.id });
 		const eventId = randomUUID();
 		const event = await scopedDb.calendarEvent.create({
 			data: {
@@ -71,14 +71,8 @@ describe("appointment and asset purge boundaries", () => {
 			).appointment.id,
 		).toBe(appointment.id);
 		expect(
-			(
-				await fixture.assets.service.getAsset(
-					fixture.actor,
-					fixture.assets.projectId,
-					assetId,
-				)
-			).asset,
-		).toMatchObject({ activityId: appointment.id, status: "READY" });
+			(await fixture.assets.service.getAsset(fixture.actor, assetId)).asset,
+		).toMatchObject({ appointmentId: appointment.id, status: "READY" });
 	});
 
 	it("purges project files before the deal cascade removes appointment rows", async () => {
@@ -86,7 +80,7 @@ describe("appointment and asset purge boundaries", () => {
 			status: "COMPLETED",
 			startsAt: "2025-09-10T15:00:00Z",
 		});
-		const { uploadId } = await fixture.ready({ activityId: appointment.id });
+		const { uploadId } = await fixture.ready({ appointmentId: appointment.id });
 		const upload = await scopedDb.assetUpload.findUniqueOrThrow({
 			where: { id: uploadId },
 		});

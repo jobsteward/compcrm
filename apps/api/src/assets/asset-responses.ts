@@ -1,24 +1,4 @@
-import type {
-	ArtifactModel as Artifact,
-	AssetUploadModel as AssetUpload,
-} from "@crm/db";
-
-export function uploadResponse(upload: AssetUpload) {
-	return {
-		id: upload.id,
-		customerId: upload.customerId,
-		projectId: upload.projectId,
-		status: upload.status,
-		expiresAt: upload.expiresAt.toISOString(),
-		assetId: upload.assetId,
-		failure: upload.failureCode
-			? {
-					code: upload.failureCode,
-					message: upload.failureMessage ?? "File finalization failed.",
-				}
-			: null,
-	};
-}
+import type { ArtifactModel as Artifact } from "@crm/db";
 
 export function assetResponse(
 	asset: Artifact & { deal: { companyId: string } },
@@ -27,7 +7,7 @@ export function assetResponse(
 		id: asset.id,
 		customerId: asset.deal.companyId,
 		projectId: asset.dealId,
-		activityId: asset.activityId,
+		appointmentId: asset.activityId,
 		fileName: asset.fileName,
 		contentType: asset.contentType,
 		sizeBytes: asset.sizeBytes === null ? null : Number(asset.sizeBytes),
@@ -52,8 +32,4 @@ export function assetResponse(
 		status: asset.status,
 		deletedAt: asset.deletedAt?.toISOString() ?? null,
 	};
-}
-
-export function assetUploadStatusUrl(projectId: string, uploadId: string) {
-	return `/projects/${encodeURIComponent(projectId)}/asset-uploads/${encodeURIComponent(uploadId)}`;
 }

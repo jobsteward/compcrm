@@ -1,90 +1,115 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { randomUUID } from "node:crypto";
 import request from "supertest";
+import type { OpenAPIObject } from "trpc-to-openapi";
 import { AssetsHttpFixture } from "./assets-http.fixture";
 
-let fixture: AssetsHttpFixture;
-let app: AssetsHttpFixture["app"];
-let userId: AssetsHttpFixture["userId"];
-let base: AssetsHttpFixture["base"];
-let metadata: AssetsHttpFixture["metadata"];
+const assetMethods = ["get", "post", "patch", "delete"] as const;
+const openapiMethods = [
+	"get",
+	"post",
+	"put",
+	"patch",
+	"delete",
+	"options",
+	"head",
+	"trace",
+] as const;
 
-describe("Asset HTTP contract compatibility", () => {
-	beforeAll(async () => {
-		fixture = new AssetsHttpFixture();
-		await fixture.setup();
-		app = fixture.app;
-		userId = fixture.userId;
-		base = fixture.base;
-		metadata = fixture.metadata;
-	});
+describe("Asset HTTP route contract", () => {
+	const fixture = new AssetsHttpFixture();
 
-	afterAll(async () => {
-		await fixture.cleanup();
-	});
+	beforeAll(() => fixture.setup());
+	afterAll(() => fixture.cleanup());
 
-	it("cancels an upload and preserves its durable status", async () => {
-		const created = await request(app.getHttpServer())
-			.post(`${base}/asset-uploads`)
-			.set("x-asset-test-user", userId)
-			.set("Idempotency-Key", randomUUID())
-			.send(metadata)
-			.expect(200);
-		const uploadId = created.body.upload.id;
-		const canceled = await request(app.getHttpServer())
-			.delete(`${base}/asset-uploads/${uploadId}`)
-			.set("x-asset-test-user", userId)
-			.set("Idempotency-Key", randomUUID())
-			.expect(200);
-		expect(canceled.body).toEqual({ uploadId, status: "CANCELED" });
-		const confirmation = await request(app.getHttpServer())
-			.post(`${base}/asset-uploads/${uploadId}/confirm`)
-			.set("x-asset-test-user", userId)
-			.set("Idempotency-Key", randomUUID())
-			.send({})
-			.expect(409);
-		expect(confirmation.body.error.details.state).toBe("CANCELED");
-	});
-
-	it("publishes root assets and preserves CRM error formatting", async () => {
-		const document = await request(app.getHttpServer())
+	it("publishes exactly seven canonical asset operations", async () => {
+		const document = await request(fixture.app.getHttpServer())
 			.get("/openapi.json")
 			.expect(200);
-		const operations = Object.entries(document.body.paths)
-			.filter(([path]) =>
-				/^\/(projects|customers)\/.*\/(assets|asset-uploads)/.test(path),
-			)
-			.flatMap(([, methods]) =>
-				Object.keys(
-					methods as { get?: object; post?: object; delete?: object },
-				).filter((method) =>
-					["get", "post", "patch", "delete"].includes(method),
-				),
+		const openapi = document.body as OpenAPIObject;
+		const paths = openapi.paths ?? {};
+		const expected = {
+			"/projects/{projectId}/assets": ["get", "post"],
+			"/appointments/{appointmentId}/assets": ["get", "post"],
+			"/assets/{assetId}": ["get", "patch", "delete"],
+		} as const;
+		for (const path of Object.keys(expected) as Array<keyof typeof expected>) {
+			const methods = expected[path];
+			const pathItem = paths[path];
+			expect(pathItem).toBeDefined();
+			if (!pathItem) continue;
+			const actual = assetMethods.filter(
+				(method) => pathItem[method] !== undefined,
 			);
-		expect(operations).toHaveLength(11);
-		const createOperation =
-			document.body.paths["/projects/{projectId}/asset-uploads"].post;
-		expect(
-			Object.keys(document.body.paths).some((path) => path.startsWith("/rest")),
-		).toBe(false);
-		expect(createOperation.parameters).toContainEqual(
-			expect.objectContaining({
-				name: "Idempotency-Key",
-				in: "header",
-				required: true,
-			}),
-		);
-		expect(
-			createOperation.responses["413"].content["application/json"].schema
-				.properties.error.required,
-		).toContain("requestId");
-		const legacy = await request(app.getHttpServer())
-			.get("/companies/missing")
-			.expect(401);
-		expect(legacy.body.code).toBe("UNAUTHORIZED");
-		expect(legacy.body).not.toHaveProperty("error");
-		await request(app.getHttpServer())
-			.get("/internal/assets/process")
-			.expect(process.env.CRON_SECRET ? 403 : 503);
+			expect(actual).toEqual([...methods]);
+			for (const method of methods) {
+				const operation = pathItem[method];
+				expect(operation).toBeDefined();
+				if (method !== "get" && operation)
+					expect(operation.parameters).toContainEqual(
+						expect.objectContaining({
+							name: "Idempotency-Key",
+							in: "header",
+							required: true,
+						}),
+					);
+			}
+		}
+		const expectedOperations = Object.entries(expected)
+			.flatMap(([path, methods]) =>
+				methods.map((method) => `${method} ${path}`),
+			)
+			.sort();
+		const taggedAssetOperations = Object.entries(paths)
+			.flatMap(([path, pathItem]) =>
+				openapiMethods.flatMap((method) =>
+					pathItem[method]?.tags?.includes("Assets")
+						? [`${method} ${path}`]
+						: [],
+				),
+			)
+			.sort();
+		expect(taggedAssetOperations).toEqual(expectedOperations);
+		expect(taggedAssetOperations).toHaveLength(7);
+	});
+
+	it("does not publish workflow, customer, nested member, or compatibility paths", async () => {
+		const document = await request(fixture.app.getHttpServer())
+			.get("/openapi.json")
+			.expect(200);
+		const openapi = document.body as OpenAPIObject;
+		const paths = Object.keys(openapi.paths ?? {});
+		expect(paths).not.toContain("/projects/{projectId}/asset-uploads");
+		expect(paths).not.toContain("/customers/{customerId}/assets");
+		expect(paths).not.toContain("/projects/{projectId}/assets/{assetId}");
+		expect(paths.some((path) => path.startsWith("/rest"))).toBe(false);
+		expect(paths.some((path) => path.startsWith("/v1"))).toBe(false);
+
+		for (const path of [
+			`${fixture.base}/asset-uploads`,
+			`/customers/${fixture.customerId}/assets`,
+			`${fixture.base}/assets/missing`,
+			`/rest/v1${fixture.base}/assets`,
+		]) {
+			await request(fixture.app.getHttpServer()).get(path).expect(404);
+		}
+	});
+
+	it("returns private no-store 404 responses without exposing asset metadata", async () => {
+		const response = await request(fixture.app.getHttpServer())
+			.get("/assets/missing")
+			.set("x-asset-test-user", fixture.userId)
+			.set("X-Request-Id", "asset-private-test")
+			.expect(404);
+		expect(response.body).toEqual({
+			error: {
+				code: "RESOURCE_NOT_FOUND",
+				message: "The record does not exist or is inaccessible.",
+				requestId: "asset-private-test",
+				retryable: false,
+			},
+		});
+		expect(response.headers["cache-control"]).toBe("private, no-store");
+		expect(response.headers["x-request-id"]).toBe("asset-private-test");
+		expect(response.body).not.toHaveProperty("asset");
 	});
 });

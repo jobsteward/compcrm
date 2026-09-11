@@ -127,18 +127,3 @@ export function query(
 export function projectPath(projectId: string, resource: string) {
 	return `/projects/${encodeURIComponent(projectId)}/${resource}`;
 }
-
-export function statusPath(
-	statusUrl: string,
-	projectId: string,
-	uploadId: string,
-) {
-	try {
-		const path = new URL(statusUrl, window.location.origin).pathname;
-		return path.startsWith("/projects/")
-			? path
-			: `${projectPath(projectId, "asset-uploads")}/${encodeURIComponent(uploadId)}`;
-	} catch {
-		return `${projectPath(projectId, "asset-uploads")}/${encodeURIComponent(uploadId)}`;
-	}
-}

@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import {
 	missing,
 	requireActiveProject,
-	validateUploadActivity,
+	validateAssetAppointment,
 } from "./asset-access.service";
 import { type AssetActor, assetActorKey } from "./asset-actor";
 import { ASSETS } from "./asset-config";
@@ -10,36 +11,29 @@ import { AssetError } from "./asset-error";
 import { AssetMutations, hashAssetRequest } from "./asset-mutation.service";
 import type { AssetStorageService } from "./asset-storage.service";
 import { createAssetStorageKeys } from "./asset-storage-keys";
-import {
-	renewUploadGrant,
-	requireAssetStorage,
-	uploadGrant,
-} from "./asset-upload-grants.service";
+import { requireAssetStorage } from "./asset-transfer.service";
 import { resolveUploadSource } from "./asset-upload-source.service";
-import {
-	type CreateUploadInput,
-	createUploadInput,
-	uploadGrantSchema,
-} from "./assets.contracts";
+import { type CreateAssetInput, createAssetInput } from "./assets.contracts";
 
-export class AssetUploadCreation {
+export class AssetCreation {
 	constructor(
 		private readonly mutations: AssetMutations,
 		private readonly storage: AssetStorageService,
 	) {}
 
-	async createUpload(
+	async createAsset(
 		actor: AssetActor,
 		projectId: string,
-		raw: CreateUploadInput,
+		raw: CreateAssetInput,
 		key: string,
+		appointmentId?: string,
 	) {
-		const parsed = createUploadInput.safeParse(raw);
+		const parsed = createAssetInput.safeParse(raw);
 		if (!parsed.success)
 			throw new AssetError(
 				400,
 				"VALIDATION_ERROR",
-				"Upload metadata is invalid.",
+				"Asset metadata is invalid.",
 			);
 		const input = parsed.data;
 		if (
@@ -54,7 +48,7 @@ export class AssetUploadCreation {
 			sizeBytes: input.sizeBytes,
 			kind: input.kind,
 			source: input.source,
-			activityId: input.activityId ?? null,
+			appointmentId: appointmentId ?? null,
 			durationMilliseconds: input.durationMilliseconds ?? null,
 			capturedAt: input.capturedAt
 				? new Date(input.capturedAt).toISOString()
@@ -64,11 +58,13 @@ export class AssetUploadCreation {
 		return this.mutations.run(
 			actor,
 			projectId,
-			"CREATE_UPLOAD",
-			`/projects/${projectId}/asset-uploads`,
+			"CREATE_ASSET",
+			appointmentId
+				? `/appointments/${appointmentId}/assets`
+				: `/projects/${projectId}/assets`,
 			key,
 			metadata,
-			uploadGrantSchema,
+			z.object({ assetId: z.string() }),
 			async (tx, project) => {
 				requireActiveProject(project);
 				if (input.sizeBytes > ASSETS.maxSingleUploadBytes)
@@ -78,7 +74,8 @@ export class AssetUploadCreation {
 						"The file exceeds the single-upload limit.",
 						{ maxBytes: ASSETS.maxSingleUploadBytes },
 					);
-				await validateUploadActivity(tx, projectId, input.activityId);
+				if (appointmentId)
+					await validateAssetAppointment(tx, projectId, appointmentId);
 				const metadataHash = hashAssetRequest(metadata);
 				const { mailboxOwnerId, existing } = await resolveUploadSource(
 					tx,
@@ -87,10 +84,10 @@ export class AssetUploadCreation {
 					input,
 					metadataHash,
 				);
-				if (existing)
-					return existing.status === "PENDING"
-						? renewUploadGrant(this.storage, tx, existing)
-						: uploadGrant(this.storage, existing);
+				if (existing) {
+					if (!existing.assetId) missing();
+					return { assetId: existing.assetId };
+				}
 				requireAssetStorage(this.storage);
 				const actorKey = assetActorKey(actor);
 				const count = await tx.assetUpload.count({
@@ -105,39 +102,56 @@ export class AssetUploadCreation {
 						true,
 					);
 				const id = randomUUID();
+				const assetId = randomUUID();
+				const keys = createAssetStorageKeys({
+					organizationId: project.organizationId,
+					projectId,
+					uploadId: id,
+					objectId: randomUUID(),
+				});
 				const expiresAt = new Date(Date.now() + ASSETS.intentMs);
 				const grantExpiresAt = new Date(
 					Math.min(Date.now() + ASSETS.uploadUrlMs, expiresAt.getTime()),
 				);
-				const upload = await tx.assetUpload.create({
+				const file = {
+					fileName: input.fileName,
+					contentType: input.contentType,
+					sizeBytes: BigInt(input.sizeBytes),
+					kind: input.kind,
+					source: input.source,
+					activityId: appointmentId ?? null,
+					uploadedById: actor.type === "USER" ? actor.userId : null,
+					durationMilliseconds:
+						input.durationMilliseconds == null
+							? null
+							: BigInt(input.durationMilliseconds),
+					capturedAt: input.capturedAt ? new Date(input.capturedAt) : null,
+					emailMessageId: input.emailSource?.messageId,
+					emailAttachmentId: input.emailSource?.attachmentId,
+				};
+				await tx.artifact.create({
 					data: {
+						...file,
+						id: assetId,
+						dealId: projectId,
+						type: input.kind,
+						storageBucket: this.storage.bucket(),
+						storageKey: keys.finalKey,
+						status: "UNVERIFIED",
+					},
+				});
+				await tx.assetUpload.create({
+					data: {
+						...file,
 						id,
+						assetId,
 						projectId,
 						customerId: project.companyId,
 						actorKey,
-						uploadedById: actor.type === "USER" ? actor.userId : null,
 						mailboxOwnerId,
-						fileName: input.fileName,
-						contentType: input.contentType,
-						sizeBytes: BigInt(input.sizeBytes),
-						kind: input.kind,
-						source: input.source,
-						activityId: input.activityId,
-						durationMilliseconds:
-							input.durationMilliseconds == null
-								? null
-								: BigInt(input.durationMilliseconds),
-						capturedAt: input.capturedAt ? new Date(input.capturedAt) : null,
-						emailMessageId: input.emailSource?.messageId,
-						emailAttachmentId: input.emailSource?.attachmentId,
 						metadataHash,
 						bucket: this.storage.bucket(),
-						...createAssetStorageKeys({
-							organizationId: project.organizationId,
-							projectId: project.id,
-							uploadId: id,
-							objectId: randomUUID(),
-						}),
+						...keys,
 						expiresAt,
 						grantExpiresAt,
 						reservationUntil: new Date(
@@ -152,17 +166,15 @@ export class AssetUploadCreation {
 							...input.emailSource,
 							projectId,
 							uploadId: id,
+							assetId,
 							metadataHash,
 							mailboxOwnerId,
 						},
-						update: { uploadId: id },
+						update: { uploadId: id, assetId },
 					});
-				return uploadGrant(this.storage, upload);
+				return { assetId };
 			},
-			{
-				activityId: input.activityId,
-				emailMessageId: input.emailSource?.messageId,
-			},
+			{ appointmentId, emailMessageId: input.emailSource?.messageId },
 		);
 	}
 }

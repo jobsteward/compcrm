@@ -118,9 +118,9 @@ describe("asset legacy compatibility", () => {
 			code: "STORAGE_UNAVAILABLE",
 			retryable: false,
 		});
-		expect(
-			(await service.getAsset(actor, projectId, result.assetId)).asset.status,
-		).toBe("READY");
+		expect((await service.getAsset(actor, result.assetId)).asset.status).toBe(
+			"READY",
+		);
 		expect(
 			(
 				await service.listProjectAssets(actor, projectId, {

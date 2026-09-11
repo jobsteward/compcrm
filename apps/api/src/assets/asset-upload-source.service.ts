@@ -2,13 +2,13 @@ import type { Prisma } from "@crm/db";
 import { missing } from "./asset-access.service";
 import { AssetError } from "./asset-error";
 import { enqueueAssetObjectDeletion } from "./asset-purge";
-import type { CreateUploadInput } from "./assets.contracts";
+import type { CreateAssetInput } from "./assets.contracts";
 
 export async function resolveUploadSource(
 	tx: Prisma.TransactionClient,
 	projectId: string,
 	project: { companyId: string },
-	input: CreateUploadInput,
+	input: CreateAssetInput,
 	metadataHash: string,
 ) {
 	let mailboxOwnerId: string | null = null;

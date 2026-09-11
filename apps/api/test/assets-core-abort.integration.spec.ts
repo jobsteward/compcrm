@@ -19,7 +19,6 @@ let storage: AssetsCoreFixture["storage"];
 let service: AssetsCoreFixture["service"];
 let worker: AssetsCoreFixture["worker"];
 let actor: AssetsCoreFixture["actor"];
-let projectId: AssetsCoreFixture["projectId"];
 let create: AssetsCoreFixture["create"];
 let put: AssetsCoreFixture["put"];
 let due: AssetsCoreFixture["due"];
@@ -36,7 +35,6 @@ describe("asset worker deadlines", () => {
 		service = fixture.service;
 		worker = fixture.worker;
 		actor = fixture.actor;
-		projectId = fixture.projectId;
 		create = fixture.create.bind(fixture);
 		put = fixture.put.bind(fixture);
 		due = fixture.due.bind(fixture);
@@ -53,10 +51,10 @@ describe("asset worker deadlines", () => {
 	it("aborts in-flight storage work at the invocation boundary and durably defers it", async () => {
 		const created = await create();
 		await put(created.upload.id);
-		await service.confirmUpload(
+		await service.updateAsset(
 			actor,
-			projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			randomUUID(),
 		);
 		const controller = new AbortController();
@@ -81,25 +79,23 @@ describe("asset worker deadlines", () => {
 			leaseToken: null,
 		});
 		expect(job.lastError).toContain("Invocation deadline");
-		expect(
-			(await service.getUpload(actor, projectId, created.upload.id)).upload
-				.status,
-		).toBe("FINALIZING");
+		expect((await service.getAsset(actor, created.asset.id)).asset.status).toBe(
+			"UNVERIFIED",
+		);
 		storage.copyHook = null;
 		await due();
 		await worker.process();
-		expect(
-			(await service.getUpload(actor, projectId, created.upload.id)).upload
-				.status,
-		).toBe("READY");
+		expect((await service.getAsset(actor, created.asset.id)).asset.status).toBe(
+			"READY",
+		);
 	});
 	it("aborts the initial source metadata request and defers finalization", async () => {
 		const created = await create();
 		await put(created.upload.id);
-		await service.confirmUpload(
+		await service.updateAsset(
 			actor,
-			projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			randomUUID(),
 		);
 		const controller = new AbortController();
@@ -126,16 +122,14 @@ describe("asset worker deadlines", () => {
 			leaseToken: null,
 		});
 		expect(job.lastError).toContain("Invocation deadline");
-		expect(
-			(await service.getUpload(actor, projectId, created.upload.id)).upload
-				.status,
-		).toBe("FINALIZING");
+		expect((await service.getAsset(actor, created.asset.id)).asset.status).toBe(
+			"UNVERIFIED",
+		);
 		storage.headHook = null;
 		await due();
 		await worker.process();
-		expect(
-			(await service.getUpload(actor, projectId, created.upload.id)).upload
-				.status,
-		).toBe("READY");
+		expect((await service.getAsset(actor, created.asset.id)).asset.status).toBe(
+			"READY",
+		);
 	});
 });
