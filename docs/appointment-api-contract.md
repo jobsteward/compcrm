@@ -32,9 +32,9 @@ Errors use the [asset error envelope](./asset-api-contract.md#errors).
 | AP4 | PATCH | `/projects/{projectId}/appointments/{appointmentId}` | Updated or restored appointment |
 | AP5 | DELETE | `/projects/{projectId}/appointments/{appointmentId}` | `{"appointmentId": "...", "archivedAt": "...", "version": 2}` |
 
-Public appointment paths have no `/rest`, version segment, or version header.
-Existing asset `/rest/v1` paths remain supported aliases, not appointment paths.
-Runtime OpenAPI at `/openapi.json` describes canonical paths, deprecated asset aliases, and unrelated `/rest` routes.
+Public appointment paths have no bridge prefix, version segment, or version header.
+Runtime OpenAPI at `/openapi.json` describes these canonical paths and the other root REST paths.
+It exposes no asset or appointment compatibility HTTP aliases.
 
 ## Appointment fields
 

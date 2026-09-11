@@ -36,15 +36,6 @@ export class FieldsRouter {
 	}
 
 	@Query({
-		input: fieldByKeyInput,
-		output: serializedFieldOutput,
-		meta: restMeta("GET", "/fields/{entity}/{key}", ["Fields"]),
-	})
-	async byKey(@Input() input: z.infer<typeof fieldByKeyInput>) {
-		return this.fields.byKey(input.entity, input.key);
-	}
-
-	@Query({
 		input: fieldEntityInput,
 		output: fieldFiltersOutput,
 		meta: restMeta("GET", "/fields/{entity}/filterable", ["Fields"]),
@@ -60,6 +51,15 @@ export class FieldsRouter {
 	})
 	async coverage(@Input("id") id: string) {
 		return this.fields.coverage(id);
+	}
+
+	@Query({
+		input: fieldByKeyInput,
+		output: serializedFieldOutput,
+		meta: restMeta("GET", "/fields/{entity}/{key}", ["Fields"]),
+	})
+	async byKey(@Input() input: z.infer<typeof fieldByKeyInput>) {
+		return this.fields.byKey(input.entity, input.key);
 	}
 
 	@Mutation({

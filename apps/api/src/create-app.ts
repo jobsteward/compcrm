@@ -10,16 +10,11 @@ import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import { AppRouterHost } from "nestjs-trpc";
 import {
-	createOpenApiExpressMiddleware,
+	createOpenApiNodeHttpHandler,
 	generateOpenApiDocument,
 } from "trpc-to-openapi";
 import { AppModule } from "./app.module";
 import { describeAssetErrors } from "./assets/asset-openapi";
-import {
-	describePublicResourcePaths,
-	isProjectResourcePath,
-	publicResourceBridgeUrl,
-} from "./assets/asset-public-routes";
 import {
 	prepareAssetRestResponse,
 	recordAssetRestError,
@@ -27,7 +22,6 @@ import {
 } from "./assets/asset-rest";
 import { RequestPrincipalService } from "./auth/request-principal.service";
 import { ContextLogger } from "./logging/context-logger";
-import { REST_BRIDGE_PATH } from "./trpc/openapi";
 import { createBaseTrpcContext } from "./trpc/trpc.context";
 
 export async function createApp(): Promise<NestExpressApplication> {
@@ -47,29 +41,14 @@ export async function createApp(): Promise<NestExpressApplication> {
 		}),
 	);
 
-	let restBridge: ((req: Request, res: Response) => Promise<void>) | undefined;
+	let restBridge:
+		| ((req: Request, res: Response, next: NextFunction) => Promise<void>)
+		| undefined;
 	app.use((req: Request, res: Response, next: NextFunction) => {
-		const bridgeUrl = publicResourceBridgeUrl(req.url);
-		if (!restBridge || bridgeUrl === null) return next();
-		req.url = bridgeUrl;
+		if (!restBridge) return next();
 		prepareAssetRestResponse(req, res);
-		void restBridge(req, res);
+		void restBridge(req, res, next);
 	});
-	app.use(
-		REST_BRIDGE_PATH,
-		(req: Request, res: Response, next: NextFunction) => {
-			if (isProjectResourcePath(req.path)) {
-				res.status(404).end();
-				return;
-			}
-			if (!restBridge) {
-				next();
-				return;
-			}
-			prepareAssetRestResponse(req, res);
-			void restBridge(req, res);
-		},
-	);
 
 	const apiKeySecurityScheme = {
 		type: "apiKey",
@@ -106,12 +85,11 @@ export async function createApp(): Promise<NestExpressApplication> {
 				},
 			});
 			describeAssetErrors(trpcDocument);
-			describePublicResourcePaths(trpcDocument);
 
 			const swaggerConfig = new DocumentBuilder()
 				.setTitle("CRM API")
 				.setDescription(
-					`REST surface of the CRM API — auth, health, the internal cron routes, and a generated REST bridge (under ${REST_BRIDGE_PATH}) for every tRPC procedure.`,
+					"REST surface of the CRM API: auth, health, internal cron routes, and tRPC procedures at root resource paths.",
 				)
 				.setVersion("1.0")
 				.addCookieAuth(SESSION_COOKIE_NAME)
@@ -162,7 +140,7 @@ export async function createApp(): Promise<NestExpressApplication> {
 	const { appRouter } = app.get(AppRouterHost);
 	const principals = app.get(RequestPrincipalService);
 
-	restBridge = createOpenApiExpressMiddleware({
+	restBridge = createOpenApiNodeHttpHandler({
 		router: appRouter,
 		createContext: async ({ req }) => {
 			const context = await createBaseTrpcContext(req, principals);

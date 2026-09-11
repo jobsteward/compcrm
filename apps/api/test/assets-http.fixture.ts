@@ -19,7 +19,7 @@ export class AssetsHttpFixture {
 	readonly otherProjectId = `${this.prefix}-other-project`;
 	readonly customerId = `${this.prefix}-customer`;
 	readonly userId = `${this.prefix}-user`;
-	readonly base = `/rest/v1/projects/${this.projectId}`;
+	readonly base = `/projects/${this.projectId}`;
 	readonly metadata = {
 		fileName: "evidence.unusual",
 		sizeBytes: 0,

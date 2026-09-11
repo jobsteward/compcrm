@@ -51,7 +51,7 @@ describe("Asset HTTP upload lifecycle", () => {
 			"Content-Length": "0",
 		});
 		await request(app.getHttpServer())
-			.get(`/rest/v1/projects/${otherProjectId}/asset-uploads/${uploadId}`)
+			.get(`/projects/${otherProjectId}/asset-uploads/${uploadId}`)
 			.set("x-asset-test-user", userId)
 			.expect(404);
 		await request(app.getHttpServer())
@@ -110,7 +110,7 @@ describe("Asset HTTP upload lifecycle", () => {
 		expect(detail.body.asset).not.toHaveProperty("storageKey");
 		for (const path of [
 			`${base}/assets`,
-			`/rest/v1/customers/${customerId}/assets?projectId=${projectId}`,
+			`/customers/${customerId}/assets?projectId=${projectId}`,
 		]) {
 			const listed = await request(app.getHttpServer())
 				.get(path)
