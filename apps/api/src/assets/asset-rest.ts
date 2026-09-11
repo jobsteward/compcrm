@@ -3,6 +3,10 @@ import type { TRPCError } from "@trpc/server";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { AssetError } from "./asset-error";
+import {
+	canonicalResourcePath,
+	isProjectResourcePath,
+} from "./asset-public-routes";
 import { assetErrorEnvelopeSchema } from "./assets.contracts";
 
 const domainFailure = assetErrorEnvelopeSchema.shape.error
@@ -11,6 +15,7 @@ const domainFailure = assetErrorEnvelopeSchema.shape.error
 const rawMutationNumbers = z.object({
 	sizeBytes: z.number().optional(),
 	durationMilliseconds: z.number().nullable().optional(),
+	expectedVersion: z.number().optional(),
 });
 type AssetFailure = {
 	status: number;
@@ -25,12 +30,7 @@ type AssetRequestState = { requestId: string; failure?: AssetFailure };
 const requests = new WeakMap<Request, AssetRequestState>();
 
 export function prepareAssetRestResponse(req: Request, res: Response): void {
-	if (
-		!/^\/v1\/(?:projects|customers)\/[^/]+\/(?:asset-uploads|assets)(?:\/|$)/.test(
-			req.path,
-		)
-	)
-		return;
+	if (!isProjectResourcePath(canonicalResourcePath(req.path))) return;
 	const supplied = req.header("X-Request-Id");
 	const requestId =
 		supplied && /^[A-Za-z0-9._:-]{1,128}$/.test(supplied)
@@ -55,8 +55,10 @@ export function prepareAssetRestResponse(req: Request, res: Response): void {
 export function validateAssetRestRequest(req: Request): void {
 	if (!requests.has(req)) return;
 	const url = new URL(req.originalUrl, "http://localhost");
-	const forbiddenQuery = ["customerId", "uploadId", "assetId"];
-	if (!/^\/rest\/v1\/customers\/[^/]+\/assets\/?$/.test(url.pathname))
+	const forbiddenQuery = ["customerId", "uploadId", "assetId", "appointmentId"];
+	if (
+		!/^\/customers\/[^/]+\/assets\/?$/.test(canonicalResourcePath(url.pathname))
+	)
 		forbiddenQuery.push("projectId");
 	if (forbiddenQuery.some((key) => url.searchParams.has(key))) {
 		throw new AssetError(
@@ -65,17 +67,17 @@ export function validateAssetRestRequest(req: Request): void {
 			"Path identifiers cannot appear in the query.",
 		);
 	}
-	if (req.method === "POST") {
-		if (url.search)
-			throw new AssetError(
-				400,
-				"VALIDATION_ERROR",
-				"Upload mutations do not accept query parameters.",
-			);
+	if (["POST", "PATCH", "DELETE"].includes(req.method) && url.search)
+		throw new AssetError(
+			400,
+			"VALIDATION_ERROR",
+			"Mutations do not accept query parameters.",
+		);
+	if (req.method === "POST" || req.method === "PATCH") {
 		const body = z.record(z.string(), z.json()).safeParse(req.body);
 		if (
 			!body.success ||
-			["projectId", "uploadId", "assetId", "customerId"].some(
+			["projectId", "uploadId", "assetId", "customerId", "appointmentId"].some(
 				(key) => key in body.data,
 			)
 		) {
@@ -89,7 +91,7 @@ export function validateAssetRestRequest(req: Request): void {
 			throw new AssetError(
 				400,
 				"VALIDATION_ERROR",
-				"Byte counts and durations must use JSON numbers.",
+				"Byte counts, durations, and versions must use JSON numbers.",
 			);
 		}
 	}

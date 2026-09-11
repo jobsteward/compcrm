@@ -16,6 +16,11 @@ import {
 import { AppModule } from "./app.module";
 import { describeAssetErrors } from "./assets/asset-openapi";
 import {
+	describePublicResourcePaths,
+	isProjectResourcePath,
+	publicResourceBridgeUrl,
+} from "./assets/asset-public-routes";
+import {
 	prepareAssetRestResponse,
 	recordAssetRestError,
 	validateAssetRestRequest,
@@ -43,9 +48,20 @@ export async function createApp(): Promise<NestExpressApplication> {
 	);
 
 	let restBridge: ((req: Request, res: Response) => Promise<void>) | undefined;
+	app.use((req: Request, res: Response, next: NextFunction) => {
+		const bridgeUrl = publicResourceBridgeUrl(req.url);
+		if (!restBridge || bridgeUrl === null) return next();
+		req.url = bridgeUrl;
+		prepareAssetRestResponse(req, res);
+		void restBridge(req, res);
+	});
 	app.use(
 		REST_BRIDGE_PATH,
 		(req: Request, res: Response, next: NextFunction) => {
+			if (isProjectResourcePath(req.path)) {
+				res.status(404).end();
+				return;
+			}
 			if (!restBridge) {
 				next();
 				return;
@@ -83,13 +99,14 @@ export async function createApp(): Promise<NestExpressApplication> {
 				description:
 					"Every tRPC procedure, reachable over REST for tooling that cannot speak tRPC. Same validation, same middlewares, same services as the tRPC transport — this only translates the wire format.",
 				version: "1.0",
-				baseUrl: `${apiUrl}${REST_BRIDGE_PATH}`,
+				baseUrl: apiUrl,
 				securitySchemes: {
 					apiKey: apiKeySecurityScheme,
 					oauth: oauthSecurityScheme,
 				},
 			});
 			describeAssetErrors(trpcDocument);
+			describePublicResourcePaths(trpcDocument);
 
 			const swaggerConfig = new DocumentBuilder()
 				.setTitle("CRM API")
@@ -120,6 +137,7 @@ export async function createApp(): Promise<NestExpressApplication> {
 				...swaggerDocument.paths,
 				...(trpcDocument.paths as typeof swaggerDocument.paths),
 			};
+			swaggerDocument.servers = [{ url: apiUrl }];
 			swaggerDocument.components = {
 				...swaggerDocument.components,
 				securitySchemes: {

@@ -8,7 +8,7 @@ import {
 import type { AssetActor } from "./asset-actor";
 import type { AssetMutations } from "./asset-mutation.service";
 import { enqueueAssetObjectDeletion } from "./asset-purge";
-import { uploadResponse } from "./asset-responses";
+import { assetUploadStatusUrl, uploadResponse } from "./asset-responses";
 import type { AssetStorageService } from "./asset-storage.service";
 import {
 	renewUploadGrant,
@@ -82,7 +82,7 @@ export class AssetUploads {
 		uploadId: string,
 		key: string,
 	) {
-		return this.mutations.run(
+		const response = await this.mutations.run(
 			actor,
 			projectId,
 			"CONFIRM_UPLOAD",
@@ -115,11 +115,15 @@ export class AssetUploads {
 				}
 				return {
 					uploadId,
-					statusUrl: `/rest/v1/projects/${encodeURIComponent(projectId)}/asset-uploads/${encodeURIComponent(uploadId)}`,
+					statusUrl: assetUploadStatusUrl(projectId, uploadId),
 				};
 			},
 			{ uploadId },
 		);
+		return {
+			...response,
+			statusUrl: assetUploadStatusUrl(projectId, response.uploadId),
+		};
 	}
 
 	async cancelUpload(

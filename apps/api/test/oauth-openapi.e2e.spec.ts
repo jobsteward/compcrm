@@ -33,7 +33,7 @@ describe("OAuth OpenAPI", () => {
 			apiKey: { type: "apiKey", name: "x-api-key", in: "header" },
 			oauth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
 		});
-		expect(response.body.paths["/companies/{id}"].get.security).toEqual([
+		expect(response.body.paths["/rest/companies/{id}"].get.security).toEqual([
 			{ cookie: [] },
 			{ apiKey: [] },
 			{ oauth: [] },

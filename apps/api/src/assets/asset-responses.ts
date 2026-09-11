@@ -47,7 +47,13 @@ export function assetResponse(
 				: Number(asset.durationMilliseconds),
 		capturedAt: asset.capturedAt?.toISOString() ?? null,
 		createdAt: asset.createdAt.toISOString(),
+		updatedAt: asset.updatedAt.toISOString(),
+		version: asset.version,
 		status: asset.status,
 		deletedAt: asset.deletedAt?.toISOString() ?? null,
 	};
+}
+
+export function assetUploadStatusUrl(projectId: string, uploadId: string) {
+	return `/projects/${encodeURIComponent(projectId)}/asset-uploads/${encodeURIComponent(uploadId)}`;
 }

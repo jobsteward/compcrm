@@ -46,20 +46,28 @@ describe("Asset HTTP contract compatibility", () => {
 		expect(confirmation.body.error.details.state).toBe("CANCELED");
 	});
 
-	it("publishes ten asset operations and leaves old REST error formatting unchanged", async () => {
+	it("publishes asset aliases and leaves old REST error formatting unchanged", async () => {
 		const document = await request(app.getHttpServer())
 			.get("/openapi.json")
 			.expect(200);
 		const operations = Object.entries(document.body.paths)
-			.filter(([path]) => path.startsWith("/v1/"))
+			.filter(([path]) =>
+				/^\/(projects|customers)\/.*\/(assets|asset-uploads)/.test(path),
+			)
 			.flatMap(([, methods]) =>
 				Object.keys(
 					methods as { get?: object; post?: object; delete?: object },
-				).filter((method) => ["get", "post", "delete"].includes(method)),
+				).filter((method) =>
+					["get", "post", "patch", "delete"].includes(method),
+				),
 			);
-		expect(operations).toHaveLength(10);
+		expect(operations).toHaveLength(11);
 		const createOperation =
-			document.body.paths["/v1/projects/{projectId}/asset-uploads"].post;
+			document.body.paths["/projects/{projectId}/asset-uploads"].post;
+		const legacyOperation =
+			document.body.paths["/rest/v1/projects/{projectId}/asset-uploads"].post;
+		expect(legacyOperation.deprecated).toBe(true);
+		expect(legacyOperation.operationId).not.toBe(createOperation.operationId);
 		expect(createOperation.parameters).toContainEqual(
 			expect.objectContaining({
 				name: "Idempotency-Key",

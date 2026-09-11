@@ -165,9 +165,12 @@ The root well-known routes expose authorization-server and protected-resource me
 ## The OpenAPI document is built at runtime, not committed
 
 Customer and project files use the [asset API contract](./asset-api-contract.md).
-`assets.*` supplies ten versioned REST operations under `/rest/v1`.
+`assets.*` supplies eleven REST operations under `/projects` and `/customers`.
+Existing `/rest/v1` asset routes remain deprecated aliases to the same procedures.
+`appointments.*` supplies five managed appointment operations under `/projects`.
+See the [appointment contract](./appointment-api-contract.md) for lifecycle, tenant checks, and file retention.
 The routes use the existing principal and OAuth scopes.
-The versioned asset routes return a structured error envelope and disable response caching.
+Both asset path families and appointment routes return a structured error envelope and disable response caching.
 The other REST routes retain their existing response format.
 
 `AssetStorageJob` holds deterministic file finalization and deletion work.
@@ -176,8 +179,10 @@ Project purge enqueues cleanup before database cascades remove file records.
 Successful deletion retains a cleanup record for delayed writes and stale workers.
 See [asset storage operations](./assets-storage-operations.md) before enabling R2.
 
-`GET /openapi.json` serves one document: Nest's own controllers plus a REST bridge
-under `/rest` generated from every tRPC procedure. Swagger UI renders it at `/`.
+`GET /openapi.json` serves one document: Nest controllers and the tRPC REST bridge.
+Public project resources use root paths. Unrelated procedures keep their `/rest` paths.
+OpenAPI lists the actual paths, including deprecated asset aliases with distinct operation IDs.
+Swagger UI renders it at `/`.
 `createApp` builds both halves and merges them, so nothing is generated at build
 time and no file is checked in — the document is whatever the routers are.
 

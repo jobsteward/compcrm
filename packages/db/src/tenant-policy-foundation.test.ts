@@ -10,6 +10,7 @@ const TABLES = [
 	"deal",
 	"dealContact",
 	"activity",
+	"appointmentDetails",
 	"fieldDefinition",
 	"fieldOption",
 	"fieldValue",

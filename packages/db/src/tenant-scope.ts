@@ -36,6 +36,7 @@ const tenantScopedModels = new Set<Prisma.ModelName>([
 	"FieldValue",
 	"SavedView",
 	"Activity",
+	"AppointmentDetails",
 	"MailboxSync",
 	"EmailThread",
 	"EmailMessage",

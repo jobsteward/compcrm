@@ -151,7 +151,10 @@ export class DashboardService {
 				},
 			}),
 			this.db.activity.findMany({
-				where: mine ? { createdById: actingUserId } : {},
+				where: {
+					archivedAt: null,
+					createdById: mine ? actingUserId : undefined,
+				},
 				orderBy: [{ createdAt: "desc" }],
 				take: 12,
 				select: {

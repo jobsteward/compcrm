@@ -4,6 +4,8 @@ import { InjectScopedDatabase } from "../database/database.constants";
 import { type AssetActor, assetActorKey } from "./asset-actor";
 import { AssetCatalog } from "./asset-catalog.service";
 import { AssetFiles } from "./asset-files.service";
+import type { AssetMetadataUpdateInput } from "./asset-metadata.contracts";
+import { AssetMetadataService } from "./asset-metadata.service";
 import { AssetMutations } from "./asset-mutation.service";
 import { uploadResponse } from "./asset-responses";
 import { AssetStorageService } from "./asset-storage.service";
@@ -19,6 +21,7 @@ export class AssetsService {
 	private readonly uploads: AssetUploads;
 	private readonly catalog: AssetCatalog;
 	private readonly files: AssetFiles;
+	private readonly metadata: AssetMetadataService;
 
 	constructor(@InjectScopedDatabase() db: Db, storage: AssetStorageService) {
 		const mutations = new AssetMutations(db);
@@ -26,6 +29,7 @@ export class AssetsService {
 		this.uploads = new AssetUploads(db, storage, mutations);
 		this.catalog = new AssetCatalog(db);
 		this.files = new AssetFiles(db, storage, mutations);
+		this.metadata = new AssetMetadataService(mutations);
 	}
 
 	async createUpload(
@@ -86,6 +90,16 @@ export class AssetsService {
 
 	async getAsset(actor: AssetActor, projectId: string, assetId: string) {
 		return this.catalog.getAsset(actor, projectId, assetId);
+	}
+
+	async updateAsset(
+		actor: AssetActor,
+		projectId: string,
+		assetId: string,
+		raw: AssetMetadataUpdateInput,
+		key: string,
+	) {
+		return this.metadata.updateAsset(actor, projectId, assetId, raw, key);
 	}
 
 	async downloadAsset(actor: AssetActor, projectId: string, assetId: string) {

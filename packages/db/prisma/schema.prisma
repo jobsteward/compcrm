@@ -33,6 +33,7 @@ model User {
   ownedContacts  Contact[]           @relation("ContactOwner")
   ownedDeals     Deal[]              @relation("DealOwner")
   activities     Activity[]          @relation("ActivityAuthor")
+  ownedAppointments AppointmentDetails[] @relation("AppointmentOwner")
   mailboxSyncs   MailboxSync[]
   factDecisions  ContactFact[]       @relation("FactDecider")
   conversations  AgentConversation[] @relation("ConversationOwner")
@@ -1400,10 +1401,13 @@ model Artifact {
   status               AssetStatus  @default(UNVERIFIED)
   deletedAt            DateTime?
   createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @default(now())
+  version              Int          @default(1)
 
   @@unique([storageBucket, storageKey])
   @@index([dealId, createdAt])
   @@index([dealId, status, createdAt, id])
+  @@index([dealId, activityId, status, createdAt, id])
   @@index([organizationId])
   @@map("artifact")
 }
@@ -1699,6 +1703,8 @@ model Activity {
   occurredAt  DateTime?
   dueAt       DateTime?
   completedAt DateTime?
+  archivedAt  DateTime?
+  appointmentDetails AppointmentDetails?
 
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -1724,8 +1730,34 @@ model Activity {
   @@index([dealId, createdAt])
   @@index([contactId, createdAt])
   @@index([dueAt])
+  @@index([archivedAt])
   @@index([createdById])
   @@map("activity")
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELED
+}
+
+model AppointmentDetails {
+  activityId      String @id
+  activity        Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  organizationId  String @default(dbgenerated("current_setting('app.current_organization_id'::text, true)"))
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  startsAt        DateTime
+  endsAt          DateTime?
+  timeZone        String
+  location        String?
+  ownerId         String
+  owner           User @relation("AppointmentOwner", fields: [ownerId], references: [id])
+  status          AppointmentStatus @default(SCHEDULED)
+  statusChangedAt DateTime @default(now())
+  version         Int @default(1)
+
+  @@index([organizationId, startsAt, activityId])
+  @@map("appointmentDetails")
 }
 
 enum GoogleSyncStatus {
@@ -2157,6 +2189,7 @@ model Organization {
   fieldValues                    FieldValue[]
   savedViews                     SavedView[]
   activities                     Activity[]
+  appointmentDetails             AppointmentDetails[]
   mailboxSyncs                   MailboxSync[]
   emailThreads                   EmailThread[]
   emailMessages                  EmailMessage[]

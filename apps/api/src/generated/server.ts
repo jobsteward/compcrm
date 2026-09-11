@@ -16,7 +16,9 @@ const publicProcedure = t.procedure;
 import { timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
 import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
 import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
+import { projectAppointmentCreateInput, appointmentDetailSchema, projectAppointmentListInput, appointmentListSchema, projectAppointmentInput, projectAppointmentUpdateInput, appointmentArchiveSchema } from "../appointments/appointments.contracts";
 import { projectUploadCreateInput, uploadGrantSchema, projectUploadInput, uploadStateSchema, uploadConfirmationSchema, uploadCancellationSchema, customerAssetListArgs, assetListSchema, projectAssetListInput, projectAssetInput, assetDetailSchema, assetDownloadSchema, assetDeletionSchema } from "../assets/assets.contracts";
+import { projectAssetMetadataUpdateInput } from "../assets/asset-metadata.contracts";
 import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
 import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
 import { conversationListInput, conversationListOutput, builderListOutput, builderResourceSearchInput, builderResourcesOutput, conversationIdInput, builderConversationDetailOutput, conversationEventsInput, conversationEventsOutput, conversationSaveInput, conversationIdOutput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, builderResponseRatingOutput, conversationShareStatusOutput, conversationShareTokenOutput, sharedConversationInput, sharedConversationOutput } from "../conversations/conversations.contracts";
@@ -142,6 +144,28 @@ const appRouter = t.router({
       .output(revokeApiKeyOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
+  appointments: t.router({
+    createAppointment: publicProcedure
+      .input(projectAppointmentCreateInput)
+      .output(appointmentDetailSchema)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    listAppointments: publicProcedure
+      .input(projectAppointmentListInput)
+      .output(appointmentListSchema)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    getAppointment: publicProcedure
+      .input(projectAppointmentInput)
+      .output(appointmentDetailSchema)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateAppointment: publicProcedure
+      .input(projectAppointmentUpdateInput)
+      .output(appointmentDetailSchema)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    archiveAppointment: publicProcedure
+      .input(projectAppointmentInput)
+      .output(appointmentArchiveSchema)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
   assets: t.router({
     createUpload: publicProcedure
       .input(projectUploadCreateInput)
@@ -175,6 +199,10 @@ const appRouter = t.router({
       .input(projectAssetInput)
       .output(assetDetailSchema)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateAsset: publicProcedure
+      .input(projectAssetMetadataUpdateInput)
+      .output(assetDetailSchema)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     downloadAsset: publicProcedure
       .input(projectAssetInput)
       .output(assetDownloadSchema)
