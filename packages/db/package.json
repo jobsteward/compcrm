@@ -29,7 +29,8 @@
 		"./tenant-scope": "./src/tenant-scope.ts",
 		"./tenants": "./src/tenants.ts",
 		"./test-support": "./src/test-support.ts",
-		"./workspace": "./src/workspace.ts"
+		"./workspace": "./src/workspace.ts",
+		"./workspace-slug": "./src/workspace-slug.ts"
 	},
 	"scripts": {
 		"build": "prisma generate",

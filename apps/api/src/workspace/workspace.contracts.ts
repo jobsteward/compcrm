@@ -1,5 +1,5 @@
 import { WORKSPACE_ROLES } from "@crm/auth";
-import { MAX_SLUG } from "@crm/db/workspace";
+import { MAX_SLUG } from "@crm/db/workspace-slug";
 import { z } from "zod";
 import { listInput } from "../trpc/list-input";
 

@@ -1,5 +1,5 @@
 import { db } from "@crm/db";
-import { workspaceSlug } from "@crm/db/workspace";
+import { workspaceSlug } from "@crm/db/workspace-slug";
 
 export async function ensureTestWorkspace(
 	id: string,
