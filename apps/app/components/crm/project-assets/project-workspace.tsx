@@ -4,17 +4,15 @@ import { Button } from "@crm/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { invalidateProjectWorkspace } from "@/lib/project-assets/cache";
 import type {
 	AppointmentFilters,
 	AssetFilters,
 } from "@/lib/project-assets/client";
-import {
-	appointmentsQuery,
-	assetsQuery,
-	projectKeys,
-} from "@/lib/project-assets/queries";
+import { appointmentsQuery, assetsQuery } from "@/lib/project-assets/queries";
 import type { Appointment, Asset } from "@/lib/project-assets/schemas";
 import { ProjectAssetsApiError } from "@/lib/project-assets/transport";
+import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { AppointmentDetail } from "./appointment-detail";
 import { AppointmentsList, type UserOption } from "./appointments-list";
@@ -35,6 +33,7 @@ export function ProjectWorkspace({
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
+	const crmCache = useCrmCache();
 	const usersQuery = useQuery(trpc.users.list.queryOptions());
 	const users: UserOption[] = (usersQuery.data ?? []).map((user) => ({
 		id: user.id,
@@ -64,9 +63,7 @@ export function ProjectWorkspace({
 	const [assetEditorId, setAssetEditorId] = useState<string | null>(null);
 	const [confirm, setConfirm] = useState<ConfirmTarget | null>(null);
 	const invalidate = () =>
-		void queryClient.invalidateQueries({
-			queryKey: projectKeys.scope(projectId),
-		});
+		void invalidateProjectWorkspace(queryClient, crmCache, projectId);
 	const actions = useProjectWorkspaceActions({
 		projectId,
 		invalidate,
