@@ -34,7 +34,7 @@ describe("Asset HTTP authentication and validation", () => {
 			["post", `${base}/asset-uploads/upload/url`],
 			["post", `${base}/asset-uploads/upload/confirm`],
 			["delete", `${base}/asset-uploads/upload`],
-			["get", `/rest/v1/customers/${customerId}/assets`],
+			["get", `/customers/${customerId}/assets`],
 			["get", `${base}/assets`],
 			["get", `${base}/assets/asset`],
 			["get", `${base}/assets/asset/download`],

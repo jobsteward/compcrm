@@ -7,11 +7,11 @@ import { inAssetTenant } from "./assets-tenant.fixture";
 
 describe("canonical project asset HTTP routes", () => {
 	const fixture = new AssetsHttpFixture();
-	const publicBase = `/projects/${fixture.projectId}`;
+	const publicBase = fixture.base;
 	beforeAll(() => fixture.setup());
 	afterAll(() => fixture.cleanup());
 
-	it("shares upload identity across canonical and retained paths", async () => {
+	it("replays uploads and returns canonical status paths", async () => {
 		const key = randomUUID();
 		const create = (base: string) =>
 			request(fixture.app.getHttpServer())
@@ -44,7 +44,7 @@ describe("canonical project asset HTTP routes", () => {
 				data: {
 					responseBody: {
 						uploadId,
-						statusUrl: `${fixture.base}/asset-uploads/${uploadId}`,
+						statusUrl: `/rest/v1${fixture.base}/asset-uploads/${uploadId}`,
 					},
 				},
 			}),
@@ -54,51 +54,46 @@ describe("canonical project asset HTTP routes", () => {
 			uploadId,
 			statusUrl: `${publicBase}/asset-uploads/${uploadId}`,
 		});
-		for (const path of [
-			confirmation.body.statusUrl,
-			`${fixture.base}/asset-uploads/${uploadId}`,
+		const status = await request(fixture.app.getHttpServer())
+			.get(confirmation.body.statusUrl)
+			.set("x-asset-test-user", fixture.userId)
+			.expect(200);
+		expect(status.body.upload.id).toBe(uploadId);
+	});
+
+	it("retains customer query filters and rejects path overrides at root paths", async () => {
+		await request(fixture.app.getHttpServer())
+			.get(
+				`/customers/${fixture.customerId}/assets?projectId=${fixture.projectId}&pageSize=1`,
+			)
+			.set("x-asset-test-user", fixture.userId)
+			.expect(200);
+		for (const suffix of [
+			"?projectId=other",
+			"?assetId=other",
+			"?customerId=other",
+			"?appointmentId=other",
 		]) {
-			const status = await request(fixture.app.getHttpServer())
-				.get(path)
+			const response = await request(fixture.app.getHttpServer())
+				.get(`${publicBase}/assets${suffix}`)
 				.set("x-asset-test-user", fixture.userId)
-				.expect(200);
-			expect(status.body.upload.id).toBe(uploadId);
+				.expect(400);
+			expect(response.body.error.code).toBe("VALIDATION_ERROR");
 		}
 	});
 
-	it("retains customer query filters and rejects path overrides on both families", async () => {
-		for (const prefix of ["", "/rest/v1"]) {
-			await request(fixture.app.getHttpServer())
-				.get(
-					`${prefix}/customers/${fixture.customerId}/assets?projectId=${fixture.projectId}&pageSize=1`,
-				)
-				.set("x-asset-test-user", fixture.userId)
-				.expect(200);
-			for (const suffix of [
-				"?projectId=other",
-				"?assetId=other",
-				"?customerId=other",
-				"?appointmentId=other",
-			]) {
-				const response = await request(fixture.app.getHttpServer())
-					.get(`${prefix}${publicBase}/assets${suffix}`)
+	it("rejects removed REST and versioned resource paths", async () => {
+		for (const resource of ["assets", "asset-uploads", "appointments"]) {
+			for (const prefix of ["/rest", "/rest/v1", "/v1"]) {
+				await request(fixture.app.getHttpServer())
+					.get(`${prefix}${publicBase}/${resource}`)
 					.set("x-asset-test-user", fixture.userId)
-					.expect(400);
-				expect(response.body.error.code).toBe("VALIDATION_ERROR");
+					.expect(404);
 			}
 		}
 	});
 
-	it("does not publish a third REST resource family", async () => {
-		for (const resource of ["assets", "appointments"]) {
-			await request(fixture.app.getHttpServer())
-				.get(`/rest${publicBase}/${resource}`)
-				.set("x-asset-test-user", fixture.userId)
-				.expect(404);
-		}
-	});
-
-	it("edits unverified metadata through both paths without granting file access", async () => {
+	it("edits unverified metadata at root paths without granting file access", async () => {
 		const asset = await inAssetTenant(() =>
 			scopedDb.artifact.create({
 				data: {
@@ -142,19 +137,17 @@ describe("canonical project asset HTTP routes", () => {
 		expect((await update(fixture.base, body).expect(200)).body).toEqual(
 			first.body,
 		);
-		for (const base of [publicBase, fixture.base]) {
-			for (const invalid of [
-				{ expectedVersion: "2", kind: "photo" },
-				{ expectedVersion: 2, projectId: "other", kind: "photo" },
-				{ expectedVersion: 2, sizeBytes: 0 },
-				{ expectedVersion: 2 },
-			])
-				await update(base, invalid, randomUUID()).expect(400);
-			const unavailable = await request(fixture.app.getHttpServer())
-				.get(`${base}/assets/${asset.id}/download`)
-				.set("x-asset-test-user", fixture.userId)
-				.expect(409);
-			expect(unavailable.body.error.code).toBe("ASSET_NOT_READY");
-		}
+		for (const invalid of [
+			{ expectedVersion: "2", kind: "photo" },
+			{ expectedVersion: 2, projectId: "other", kind: "photo" },
+			{ expectedVersion: 2, sizeBytes: 0 },
+			{ expectedVersion: 2 },
+		])
+			await update(publicBase, invalid, randomUUID()).expect(400);
+		const unavailable = await request(fixture.app.getHttpServer())
+			.get(`${publicBase}/assets/${asset.id}/download`)
+			.set("x-asset-test-user", fixture.userId)
+			.expect(409);
+		expect(unavailable.body.error.code).toBe("ASSET_NOT_READY");
 	});
 });

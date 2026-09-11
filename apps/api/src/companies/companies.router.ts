@@ -49,21 +49,21 @@ export class CompaniesRouter {
 	}
 
 	@Query({
-		input: companyIdInput,
-		output: companyDetailOutput,
-		meta: restMeta("GET", "/companies/{id}", ["Companies"]),
-	})
-	async byId(@Input("id") id: string) {
-		return this.companies.byId(id);
-	}
-
-	@Query({
 		input: companyOptionsInput,
 		output: companyOptionOutput,
 		meta: restMeta("GET", "/companies/options", ["Companies"]),
 	})
 	async options(@Input("q") q: string) {
 		return this.companies.options(q);
+	}
+
+	@Query({
+		input: companyIdInput,
+		output: companyDetailOutput,
+		meta: restMeta("GET", "/companies/{id}", ["Companies"]),
+	})
+	async byId(@Input("id") id: string) {
+		return this.companies.byId(id);
 	}
 
 	@Mutation({

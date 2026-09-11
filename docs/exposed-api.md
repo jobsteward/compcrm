@@ -4,7 +4,7 @@ This document describes the HTTP API exposed by the CRM API process.
 
 It covers authentication, authorization, tRPC, REST, native controllers, and internal routes.
 
-Verified on 2026-08-29 against the current source and generated router.
+Verified on 2026-09-10 against the current source and generated router.
 
 > [!WARNING]
 > The process mounts more routes than the supported CRM contract.
@@ -24,16 +24,18 @@ Verified on 2026-08-29 against the current source and generated router.
 
 | Surface | Base path | Count | Primary purpose |
 | --- | --- | ---: | --- |
-| tRPC | `/api/trpc` | 160 procedures | Type-safe application data API |
-| REST bridge | `/rest` | 159 operations | OpenAPI transport for tRPC procedures |
+| tRPC | `/api/trpc` | 177 procedures | Type-safe application data API |
+| REST bridge | Root resource paths | 175 operations | OpenAPI transport for tRPC procedures |
 | Better Auth | `/api/auth` | Version-dependent | Sign-in, sessions, OAuth, providers, and plugin endpoints |
 | Native controllers | Various paths | 18 operations | Health, profile, tracking, attachments, and cron work |
 | Swagger UI | `/` | 1 page | Interactive REST documentation |
 | OpenAPI JSON | `/openapi.json` | 1 document | Native controllers and REST bridge |
 
-The tRPC router contains 21 namespaces.
+The merged OpenAPI document contains 160 paths, including native controller paths and 175 REST operations.
 
-The REST bridge omits only `users.me`.
+The tRPC router contains 23 namespaces.
+
+The REST bridge exposes 175 of 177 procedures. It omits `users.me` and `workspace.gate`.
 
 The native `GET /auth/me` endpoint provides the equivalent profile operation.
 
@@ -70,7 +72,7 @@ Call an authenticated REST bridge route with an API key:
 ```bash
 curl --fail-with-body \
   --header 'x-api-key: crm_REPLACE_WITH_KEY' \
-  http://localhost:3001/rest/companies/options?q=acme
+  http://localhost:3001/companies/options?q=acme
 ```
 
 Call a REST mutation:
@@ -81,7 +83,7 @@ curl --fail-with-body \
   --header 'content-type: application/json' \
   --header 'x-api-key: crm_REPLACE_WITH_KEY' \
   --data '{"name":"Acme","domain":"acme.com"}' \
-  http://localhost:3001/rest/companies
+  http://localhost:3001/companies
 ```
 
 Call a tRPC query with a browser session:
@@ -156,9 +158,9 @@ Use these supported management routes:
 
 | Operation | tRPC | REST |
 | --- | --- | --- |
-| List keys | `apiKeys.list` | `GET /rest/api-keys` |
-| Create key | `apiKeys.create` | `POST /rest/api-keys` |
-| Revoke key | `apiKeys.revoke` | `DELETE /rest/api-keys/{id}` |
+| List keys | `apiKeys.list` | `GET /api-keys` |
+| Create key | `apiKeys.create` | `POST /api-keys` |
+| Revoke key | `apiKeys.revoke` | `DELETE /api-keys/{id}` |
 
 The create response returns the complete key once.
 
@@ -184,7 +186,7 @@ The following supported operations need no session:
 | --- | --- | --- |
 | GET | `/health` | Check API and database liveness |
 | GET | `/auth/session` | Report optional session state |
-| GET | `/rest/sso/sign-in-options` | List configured sign-in choices |
+| GET | `/sso/sign-in-options` | List configured sign-in choices |
 | GET | `/api/t/config/:siteId` | Read public tracking configuration |
 | POST | `/api/t/e` | Submit tracking events |
 | GET | `/api/auth/ok` | Check Better Auth availability |
@@ -525,7 +527,7 @@ Redact `x-api-key`, `cookie`, and `set-cookie` in every diagnostic sink.
 
 ### Bootstrap identity and capabilities
 
-Call `GET /rest/workspace` after loading a credential.
+Call `GET /workspace` after loading a credential.
 
 This operation accepts a browser session or API key.
 
@@ -592,7 +594,7 @@ A timeout does not prove credential failure.
 
 Validate the stored key through a protected REST request at startup.
 
-Use `GET /rest/workspace` for this check.
+Use `GET /workspace` for this check.
 
 ### Map API failures
 
@@ -667,7 +669,7 @@ Use `/auth/session` to check optional browser authentication.
 
 Use `/auth/me` to read the signed-in profile.
 
-Call `/rest/workspace` to load role and capability data.
+Call `/workspace` to load role and capability data.
 
 ### Recommended authentication target
 
@@ -1022,6 +1024,10 @@ Every `restMeta` call defaults to protected.
 
 Only `sso.signInOptions` sets `protect: false`.
 
+All tRPC REST metadata uses root resource paths.
+
+The document contains no tRPC REST compatibility aliases.
+
 The document declares three security schemes.
 
 | Scheme | Location | Name |
@@ -1176,275 +1182,303 @@ The input and output names refer to Zod schemas in router contract modules.
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `activities.timeline` | query | `GET /rest/activities` | `timelineInput` | `timelineOutput` | session-or-api-key |
-| `activities.timelineCounts` | query | `GET /rest/activities/counts` | `timelineCountsInput` | `timelineCountsOutput` | session-or-api-key |
-| `activities.myTasks` | query | `GET /rest/activities/my-tasks` | `myTasksInput` | `myTasksOutput` | session-or-api-key |
-| `activities.create` | mutation | `POST /rest/activities` | `activityCreateInput` | `activityCreateOutput` | session-or-api-key |
-| `activities.complete` | mutation | `PATCH /rest/activities/{id}/complete` | `completeInput` | `completeOutput` | session-or-api-key |
+| `activities.timeline` | query | `GET /activities` | `timelineInput` | `timelineOutput` | session-or-api-key |
+| `activities.timelineCounts` | query | `GET /activities/counts` | `timelineCountsInput` | `timelineCountsOutput` | session-or-api-key |
+| `activities.myTasks` | query | `GET /activities/my-tasks` | `myTasksInput` | `myTasksOutput` | session-or-api-key |
+| `activities.create` | mutation | `POST /activities` | `activityCreateInput` | `activityCreateOutput` | session-or-api-key |
+| `activities.complete` | mutation | `PATCH /activities/{id}/complete` | `completeInput` | `completeOutput` | session-or-api-key |
 
 ### `agents`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `agents.list` | query | `GET /rest/agents` | `none` | `agentListOutput` | session-or-api-key |
-| `agents.revise` | mutation | `POST /rest/agents/{id}/revise` | `agentReviseInput` | `agentReviseOutput` | session-or-api-key |
-| `agents.files` | query | `GET /rest/agents/{id}/files` | `agentIdInput` | `agentFilesOutput` | session-or-api-key |
-| `agents.saveFile` | mutation | `POST /rest/agents/{id}/save-file` | `agentSaveFileInput` | `agentSaveFileOutput` | session-or-api-key |
-| `agents.byId` | query | `GET /rest/agents/{id}` | `agentIdInput` | `agentByIdOutput` | session-or-api-key |
-| `agents.history` | query | `GET /rest/agents/{id}/history` | `agentHistoryInput` | `agentHistoryOutput` | session-or-api-key |
-| `agents.activity` | query | `GET /rest/agents/{id}/activity` | `agentHistoryInput` | `agentActivityOutput` | session-or-api-key |
-| `agents.update` | mutation | `PATCH /rest/agents/{id}` | `agentUpdateInput` | `agentUpdateOutput` | session-or-api-key |
-| `agents.deploy` | mutation | `POST /rest/agents/{id}/deploy` | `agentDeployInput` | `agentDeployOutput` | session-or-api-key |
-| `agents.pause` | mutation | `POST /rest/agents/{id}/pause` | `agentIdInput` | `agentPauseOutput` | session-or-api-key |
-| `agents.resume` | mutation | `POST /rest/agents/{id}/resume` | `agentIdInput` | `agentResumeOutput` | session-or-api-key |
-| `agents.archive` | mutation | `POST /rest/agents/{id}/archive` | `agentIdInput` | `agentArchiveOutput` | session-or-api-key |
-| `agents.restore` | mutation | `POST /rest/agents/{id}/restore` | `agentIdInput` | `agentRestoreOutput` | session-or-api-key |
-| `agents.remove` | mutation | `DELETE /rest/agents/{id}` | `agentIdInput` | `agentRemoveOutput` | session-or-api-key |
-| `agents.runNow` | mutation | `POST /rest/agents/{id}/run` | `agentRunNowInput` | `agentRunNowOutput` | session-or-api-key |
-| `agents.retryRun` | mutation | `POST /rest/agents/{id}/runs/{runId}/retry` | `agentRetryRunInput` | `agentRetryRunOutput` | session-or-api-key |
-| `agents.cancelRun` | mutation | `POST /rest/agents/{id}/runs/{runId}/cancel` | `agentCancelRunInput` | `agentCancelRunOutput` | session-or-api-key |
+| `agents.list` | query | `GET /agents` | `none` | `agentListOutput` | session-or-api-key |
+| `agents.revise` | mutation | `POST /agents/{id}/revise` | `agentReviseInput` | `agentReviseOutput` | session-or-api-key |
+| `agents.files` | query | `GET /agents/{id}/files` | `agentIdInput` | `agentFilesOutput` | session-or-api-key |
+| `agents.saveFile` | mutation | `POST /agents/{id}/save-file` | `agentSaveFileInput` | `agentSaveFileOutput` | session-or-api-key |
+| `agents.byId` | query | `GET /agents/{id}` | `agentIdInput` | `agentByIdOutput` | session-or-api-key |
+| `agents.history` | query | `GET /agents/{id}/history` | `agentHistoryInput` | `agentHistoryOutput` | session-or-api-key |
+| `agents.activity` | query | `GET /agents/{id}/activity` | `agentHistoryInput` | `agentActivityOutput` | session-or-api-key |
+| `agents.update` | mutation | `PATCH /agents/{id}` | `agentUpdateInput` | `agentUpdateOutput` | session-or-api-key |
+| `agents.deploy` | mutation | `POST /agents/{id}/deploy` | `agentDeployInput` | `agentDeployOutput` | session-or-api-key |
+| `agents.pause` | mutation | `POST /agents/{id}/pause` | `agentIdInput` | `agentPauseOutput` | session-or-api-key |
+| `agents.resume` | mutation | `POST /agents/{id}/resume` | `agentIdInput` | `agentResumeOutput` | session-or-api-key |
+| `agents.archive` | mutation | `POST /agents/{id}/archive` | `agentIdInput` | `agentArchiveOutput` | session-or-api-key |
+| `agents.restore` | mutation | `POST /agents/{id}/restore` | `agentIdInput` | `agentRestoreOutput` | session-or-api-key |
+| `agents.remove` | mutation | `DELETE /agents/{id}` | `agentIdInput` | `agentRemoveOutput` | session-or-api-key |
+| `agents.runNow` | mutation | `POST /agents/{id}/run` | `agentRunNowInput` | `agentRunNowOutput` | session-or-api-key |
+| `agents.retryRun` | mutation | `POST /agents/{id}/runs/{runId}/retry` | `agentRetryRunInput` | `agentRetryRunOutput` | session-or-api-key |
+| `agents.cancelRun` | mutation | `POST /agents/{id}/runs/{runId}/cancel` | `agentCancelRunInput` | `agentCancelRunOutput` | session-or-api-key |
 
 ### `apiKeys`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `apiKeys.list` | query | `GET /rest/api-keys` | `apiKeyListInput` | `apiKeyListOutput` | session-only |
-| `apiKeys.create` | mutation | `POST /rest/api-keys` | `createApiKeyInput` | `createApiKeyOutput` | session-only |
-| `apiKeys.revoke` | mutation | `DELETE /rest/api-keys/{id}` | `revokeApiKeyInput` | `revokeApiKeyOutput` | session-only |
+| `apiKeys.list` | query | `GET /api-keys` | `apiKeyListInput` | `apiKeyListOutput` | session-only |
+| `apiKeys.create` | mutation | `POST /api-keys` | `createApiKeyInput` | `createApiKeyOutput` | session-only |
+| `apiKeys.revoke` | mutation | `DELETE /api-keys/{id}` | `revokeApiKeyInput` | `revokeApiKeyOutput` | session-only |
+
+### `appointments`
+
+| tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
+| --- | --- | --- | --- | --- | --- |
+| `appointments.createAppointment` | mutation | `POST /projects/{projectId}/appointments` | `projectAppointmentCreateInput` | `appointmentDetailSchema` | session-or-api-key |
+| `appointments.listAppointments` | query | `GET /projects/{projectId}/appointments` | `projectAppointmentListInput` | `appointmentListSchema` | session-or-api-key |
+| `appointments.getAppointment` | query | `GET /projects/{projectId}/appointments/{appointmentId}` | `projectAppointmentInput` | `appointmentDetailSchema` | session-or-api-key |
+| `appointments.updateAppointment` | mutation | `PATCH /projects/{projectId}/appointments/{appointmentId}` | `projectAppointmentUpdateInput` | `appointmentDetailSchema` | session-or-api-key |
+| `appointments.archiveAppointment` | mutation | `DELETE /projects/{projectId}/appointments/{appointmentId}` | `projectAppointmentInput` | `appointmentArchiveSchema` | session-or-api-key |
+
+### `assets`
+
+| tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
+| --- | --- | --- | --- | --- | --- |
+| `assets.createUpload` | mutation | `POST /projects/{projectId}/asset-uploads` | `projectUploadCreateInput` | `uploadGrantSchema` | session-or-api-key |
+| `assets.getUpload` | query | `GET /projects/{projectId}/asset-uploads/{uploadId}` | `projectUploadInput` | `uploadStateSchema` | session-or-api-key |
+| `assets.renewUpload` | mutation | `POST /projects/{projectId}/asset-uploads/{uploadId}/url` | `projectUploadInput` | `uploadGrantSchema` | session-or-api-key |
+| `assets.confirmUpload` | mutation | `POST /projects/{projectId}/asset-uploads/{uploadId}/confirm` | `projectUploadInput` | `uploadConfirmationSchema` | session-or-api-key |
+| `assets.cancelUpload` | mutation | `DELETE /projects/{projectId}/asset-uploads/{uploadId}` | `projectUploadInput` | `uploadCancellationSchema` | session-or-api-key |
+| `assets.listCustomerAssets` | query | `GET /customers/{customerId}/assets` | `customerAssetListArgs` | `assetListSchema` | session-or-api-key |
+| `assets.listProjectAssets` | query | `GET /projects/{projectId}/assets` | `projectAssetListInput` | `assetListSchema` | session-or-api-key |
+| `assets.getAsset` | query | `GET /projects/{projectId}/assets/{assetId}` | `projectAssetInput` | `assetDetailSchema` | session-or-api-key |
+| `assets.updateAsset` | mutation | `PATCH /projects/{projectId}/assets/{assetId}` | `projectAssetMetadataUpdateInput` | `assetDetailSchema` | session-or-api-key |
+| `assets.downloadAsset` | query | `GET /projects/{projectId}/assets/{assetId}/download` | `projectAssetInput` | `assetDownloadSchema` | session-or-api-key |
+| `assets.deleteAsset` | mutation | `DELETE /projects/{projectId}/assets/{assetId}` | `projectAssetInput` | `assetDeletionSchema` | session-or-api-key |
 
 ### `companies`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `companies.list` | query | `POST /rest/companies/search` | `companyListInput` | `companyListOutput` | session-or-api-key |
-| `companies.byId` | query | `GET /rest/companies/{id}` | `companyIdInput` | `companyDetailOutput` | session-or-api-key |
-| `companies.options` | query | `GET /rest/companies/options` | `companyOptionsInput` | `companyOptionOutput` | session-or-api-key |
-| `companies.create` | mutation | `POST /rest/companies` | `companyCreateInput` | `companySummaryOutput` | session-or-api-key |
-| `companies.update` | mutation | `PATCH /rest/companies/{id}` | `companyUpdateArgs` | `companySummaryOutput` | session-or-api-key |
-| `companies.archive` | mutation | `POST /rest/companies/{id}/archive` | `companyIdInput` | `companyArchiveResultOutput` | session-or-api-key |
-| `companies.restore` | mutation | `POST /rest/companies/{id}/restore` | `companyIdInput` | `companyArchiveResultOutput` | session-or-api-key |
-| `companies.purge` | mutation | `DELETE /rest/companies/{id}` | `companyIdInput` | `companyArchiveResultOutput` | session-or-api-key |
-| `companies.bulkAssignOwner` | mutation | `POST /rest/companies/bulk-assign-owner` | `companyBulkOwnerInput` | `companyBulkResultOutput` | session-or-api-key |
-| `companies.bulkEnrich` | mutation | `POST /rest/companies/bulk-enrich` | `companyBulkInput` | `companyBulkResultOutput` | session-or-api-key |
-| `companies.bulkArchive` | mutation | `POST /rest/companies/bulk-archive` | `companyBulkInput` | `companyBulkResultOutput` | session-or-api-key |
-| `companies.bulkRestore` | mutation | `POST /rest/companies/bulk-restore` | `companyBulkInput` | `companyBulkResultOutput` | session-or-api-key |
-| `companies.bulkPurge` | mutation | `POST /rest/companies/bulk-purge` | `companyBulkInput` | `companyBulkResultOutput` | session-or-api-key |
-| `companies.enrich` | mutation | `POST /rest/companies/{id}/enrich` | `companyIdInput` | `companyEnrichOutput` | session-or-api-key |
-| `companies.research` | mutation | `POST /rest/companies/{id}/research` | `companyIdInput` | `companyResearchOutput` | session-or-api-key |
-| `companies.setPrimaryContact` | mutation | `POST /rest/companies/{companyId}/set-primary-contact` | `setPrimaryContactInput` | `companySetPrimaryContactOutput` | session-or-api-key |
+| `companies.list` | query | `POST /companies/search` | `companyListInput` | `companyListOutput` | session-or-api-key |
+| `companies.byId` | query | `GET /companies/{id}` | `companyIdInput` | `companyDetailOutput` | session-or-api-key |
+| `companies.options` | query | `GET /companies/options` | `companyOptionsInput` | `companyOptionOutput` | session-or-api-key |
+| `companies.create` | mutation | `POST /companies` | `companyCreateInput` | `companySummaryOutput` | session-or-api-key |
+| `companies.update` | mutation | `PATCH /companies/{id}` | `companyUpdateArgs` | `companySummaryOutput` | session-or-api-key |
+| `companies.archive` | mutation | `POST /companies/{id}/archive` | `companyIdInput` | `companyArchiveResultOutput` | session-or-api-key |
+| `companies.restore` | mutation | `POST /companies/{id}/restore` | `companyIdInput` | `companyArchiveResultOutput` | session-or-api-key |
+| `companies.purge` | mutation | `DELETE /companies/{id}` | `companyIdInput` | `companyArchiveResultOutput` | session-or-api-key |
+| `companies.bulkAssignOwner` | mutation | `POST /companies/bulk-assign-owner` | `companyBulkOwnerInput` | `companyBulkResultOutput` | session-or-api-key |
+| `companies.bulkEnrich` | mutation | `POST /companies/bulk-enrich` | `companyBulkInput` | `companyBulkResultOutput` | session-or-api-key |
+| `companies.bulkArchive` | mutation | `POST /companies/bulk-archive` | `companyBulkInput` | `companyBulkResultOutput` | session-or-api-key |
+| `companies.bulkRestore` | mutation | `POST /companies/bulk-restore` | `companyBulkInput` | `companyBulkResultOutput` | session-or-api-key |
+| `companies.bulkPurge` | mutation | `POST /companies/bulk-purge` | `companyBulkInput` | `companyBulkResultOutput` | session-or-api-key |
+| `companies.enrich` | mutation | `POST /companies/{id}/enrich` | `companyIdInput` | `companyEnrichOutput` | session-or-api-key |
+| `companies.research` | mutation | `POST /companies/{id}/research` | `companyIdInput` | `companyResearchOutput` | session-or-api-key |
+| `companies.setPrimaryContact` | mutation | `POST /companies/{companyId}/set-primary-contact` | `setPrimaryContactInput` | `companySetPrimaryContactOutput` | session-or-api-key |
 
 ### `contacts`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `contacts.list` | query | `POST /rest/contacts/search` | `contactListInput` | `contactListOutput` | session-or-api-key |
-| `contacts.byId` | query | `GET /rest/contacts/{id}` | `contactIdInput` | `contactByIdOutput` | session-or-api-key |
-| `contacts.create` | mutation | `POST /rest/contacts` | `contactCreateInput` | `contactBasicOutput` | session-or-api-key |
-| `contacts.update` | mutation | `PATCH /rest/contacts/{id}` | `contactUpdateArgs` | `contactBasicOutput` | session-or-api-key |
-| `contacts.archive` | mutation | `POST /rest/contacts/{id}/archive` | `contactIdInput` | `contactNameOutput` | session-or-api-key |
-| `contacts.restore` | mutation | `POST /rest/contacts/{id}/restore` | `contactIdInput` | `contactNameOutput` | session-or-api-key |
-| `contacts.purge` | mutation | `DELETE /rest/contacts/{id}` | `contactIdInput` | `contactNameOutput` | session-or-api-key |
-| `contacts.enrich` | mutation | `POST /rest/contacts/{id}/enrich` | `contactIdInput` | `contactEnrichOutput` | session-or-api-key |
-| `contacts.bulkAssignOwner` | mutation | `POST /rest/contacts/bulk-assign-owner` | `contactBulkOwnerInput` | `bulkResultOutput` | session-or-api-key |
-| `contacts.bulkSetCompany` | mutation | `POST /rest/contacts/bulk-set-company` | `contactBulkCompanyInput` | `bulkResultOutput` | session-or-api-key |
-| `contacts.bulkEnrich` | mutation | `POST /rest/contacts/bulk-enrich` | `contactBulkInput` | `bulkResultOutput` | session-or-api-key |
-| `contacts.bulkArchive` | mutation | `POST /rest/contacts/bulk-archive` | `contactBulkInput` | `bulkResultOutput` | session-or-api-key |
-| `contacts.bulkRestore` | mutation | `POST /rest/contacts/bulk-restore` | `contactBulkInput` | `bulkResultOutput` | session-or-api-key |
-| `contacts.bulkPurge` | mutation | `POST /rest/contacts/bulk-purge` | `contactBulkInput` | `bulkResultOutput` | session-or-api-key |
-| `contacts.decideFact` | mutation | `POST /rest/contacts/decide-fact` | `factDecisionInput` | `decideFactOutput` | session-or-api-key |
+| `contacts.list` | query | `POST /contacts/search` | `contactListInput` | `contactListOutput` | session-or-api-key |
+| `contacts.byId` | query | `GET /contacts/{id}` | `contactIdInput` | `contactByIdOutput` | session-or-api-key |
+| `contacts.create` | mutation | `POST /contacts` | `contactCreateInput` | `contactBasicOutput` | session-or-api-key |
+| `contacts.update` | mutation | `PATCH /contacts/{id}` | `contactUpdateArgs` | `contactBasicOutput` | session-or-api-key |
+| `contacts.archive` | mutation | `POST /contacts/{id}/archive` | `contactIdInput` | `contactNameOutput` | session-or-api-key |
+| `contacts.restore` | mutation | `POST /contacts/{id}/restore` | `contactIdInput` | `contactNameOutput` | session-or-api-key |
+| `contacts.purge` | mutation | `DELETE /contacts/{id}` | `contactIdInput` | `contactNameOutput` | session-or-api-key |
+| `contacts.enrich` | mutation | `POST /contacts/{id}/enrich` | `contactIdInput` | `contactEnrichOutput` | session-or-api-key |
+| `contacts.bulkAssignOwner` | mutation | `POST /contacts/bulk-assign-owner` | `contactBulkOwnerInput` | `bulkResultOutput` | session-or-api-key |
+| `contacts.bulkSetCompany` | mutation | `POST /contacts/bulk-set-company` | `contactBulkCompanyInput` | `bulkResultOutput` | session-or-api-key |
+| `contacts.bulkEnrich` | mutation | `POST /contacts/bulk-enrich` | `contactBulkInput` | `bulkResultOutput` | session-or-api-key |
+| `contacts.bulkArchive` | mutation | `POST /contacts/bulk-archive` | `contactBulkInput` | `bulkResultOutput` | session-or-api-key |
+| `contacts.bulkRestore` | mutation | `POST /contacts/bulk-restore` | `contactBulkInput` | `bulkResultOutput` | session-or-api-key |
+| `contacts.bulkPurge` | mutation | `POST /contacts/bulk-purge` | `contactBulkInput` | `bulkResultOutput` | session-or-api-key |
+| `contacts.decideFact` | mutation | `POST /contacts/decide-fact` | `factDecisionInput` | `decideFactOutput` | session-or-api-key |
 
 ### `conversations`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `conversations.list` | query | `GET /rest/conversations` | `conversationListInput` | `conversationListOutput` | session-or-api-key |
-| `conversations.builderList` | query | `GET /rest/conversations/builder` | `none` | `builderListOutput` | session-or-api-key |
-| `conversations.builderResources` | query | `GET /rest/conversations/builder-resources` | `builderResourceSearchInput` | `builderResourcesOutput` | session-or-api-key |
-| `conversations.builderById` | query | `GET /rest/conversations/builder/{id}` | `conversationIdInput` | `builderConversationDetailOutput` | session-or-api-key |
-| `conversations.events` | query | `GET /rest/conversations/{id}/events` | `conversationEventsInput` | `conversationEventsOutput` | session-or-api-key |
-| `conversations.save` | mutation | `POST /rest/conversations` | `conversationSaveInput` | `conversationIdOutput` | session-or-api-key |
-| `conversations.createBuilder` | mutation | `POST /rest/conversations/builder` | `builderConversationCreateInput` | `conversationIdOutput` | session-or-api-key |
-| `conversations.submitBuilder` | mutation | `POST /rest/conversations/{id}/submit-builder` | `builderConversationSubmitInput` | `conversationIdOutput` | session-or-api-key |
-| `conversations.answerBuilderQuestion` | mutation | `POST /rest/conversations/{id}/answer-builder-question` | `builderQuestionResponseInput` | `conversationIdOutput` | session-or-api-key |
-| `conversations.rateBuilderResponse` | mutation | `POST /rest/conversations/{id}/rate-builder-response` | `builderResponseRatingInput` | `builderResponseRatingOutput` | session-or-api-key |
-| `conversations.markRead` | mutation | `PATCH /rest/conversations/{id}/read` | `conversationIdInput` | `conversationIdOutput` | session-or-api-key |
-| `conversations.shareStatus` | query | `GET /rest/conversations/{id}/share` | `conversationIdInput` | `conversationShareStatusOutput` | session-or-api-key |
-| `conversations.createShare` | mutation | `POST /rest/conversations/{id}/share` | `conversationIdInput` | `conversationShareTokenOutput` | session-or-api-key |
-| `conversations.revokeShare` | mutation | `DELETE /rest/conversations/{id}/share` | `conversationIdInput` | `conversationIdOutput` | session-or-api-key |
-| `conversations.shared` | query | `GET /rest/conversations/shared/{token}` | `sharedConversationInput` | `sharedConversationOutput` | session-or-api-key |
-| `conversations.remove` | mutation | `DELETE /rest/conversations/{id}` | `conversationIdInput` | `conversationIdOutput` | session-or-api-key |
+| `conversations.list` | query | `GET /conversations` | `conversationListInput` | `conversationListOutput` | session-or-api-key |
+| `conversations.builderList` | query | `GET /conversations/builder` | `none` | `builderListOutput` | session-or-api-key |
+| `conversations.builderResources` | query | `GET /conversations/builder-resources` | `builderResourceSearchInput` | `builderResourcesOutput` | session-or-api-key |
+| `conversations.builderById` | query | `GET /conversations/builder/{id}` | `conversationIdInput` | `builderConversationDetailOutput` | session-or-api-key |
+| `conversations.events` | query | `GET /conversations/{id}/events` | `conversationEventsInput` | `conversationEventsOutput` | session-or-api-key |
+| `conversations.save` | mutation | `POST /conversations` | `conversationSaveInput` | `conversationIdOutput` | session-or-api-key |
+| `conversations.createBuilder` | mutation | `POST /conversations/builder` | `builderConversationCreateInput` | `conversationIdOutput` | session-or-api-key |
+| `conversations.submitBuilder` | mutation | `POST /conversations/{id}/submit-builder` | `builderConversationSubmitInput` | `conversationIdOutput` | session-or-api-key |
+| `conversations.answerBuilderQuestion` | mutation | `POST /conversations/{id}/answer-builder-question` | `builderQuestionResponseInput` | `conversationIdOutput` | session-or-api-key |
+| `conversations.rateBuilderResponse` | mutation | `POST /conversations/{id}/rate-builder-response` | `builderResponseRatingInput` | `builderResponseRatingOutput` | session-or-api-key |
+| `conversations.markRead` | mutation | `PATCH /conversations/{id}/read` | `conversationIdInput` | `conversationIdOutput` | session-or-api-key |
+| `conversations.shareStatus` | query | `GET /conversations/{id}/share` | `conversationIdInput` | `conversationShareStatusOutput` | session-or-api-key |
+| `conversations.createShare` | mutation | `POST /conversations/{id}/share` | `conversationIdInput` | `conversationShareTokenOutput` | session-or-api-key |
+| `conversations.revokeShare` | mutation | `DELETE /conversations/{id}/share` | `conversationIdInput` | `conversationIdOutput` | session-or-api-key |
+| `conversations.shared` | query | `GET /conversations/shared/{token}` | `sharedConversationInput` | `sharedConversationOutput` | session-or-api-key |
+| `conversations.remove` | mutation | `DELETE /conversations/{id}` | `conversationIdInput` | `conversationIdOutput` | session-or-api-key |
 
 ### `currency`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `currency.settings` | query | `GET /rest/currency/settings` | `none` | `currencySettingsOutput` | session-or-api-key |
-| `currency.setReportingCurrency` | mutation | `PATCH /rest/currency/reporting-currency` | `setReportingCurrencyInput` | `currencySettingsOutput` | session-or-api-key |
-| `currency.setManualRate` | mutation | `PUT /rest/currency/rates/{currency}` | `setManualRateInput` | `currencySettingsOutput` | session-or-api-key |
-| `currency.removeManualRate` | mutation | `DELETE /rest/currency/rates/{currency}` | `removeManualRateInput` | `currencySettingsOutput` | session-or-api-key |
-| `currency.refreshRates` | mutation | `POST /rest/currency/rates/refresh` | `none` | `currencySettingsOutput` | session-or-api-key |
+| `currency.settings` | query | `GET /currency/settings` | `none` | `currencySettingsOutput` | session-or-api-key |
+| `currency.setReportingCurrency` | mutation | `PATCH /currency/reporting-currency` | `setReportingCurrencyInput` | `currencySettingsOutput` | session-or-api-key |
+| `currency.setManualRate` | mutation | `PUT /currency/rates/{currency}` | `setManualRateInput` | `currencySettingsOutput` | session-or-api-key |
+| `currency.removeManualRate` | mutation | `DELETE /currency/rates/{currency}` | `removeManualRateInput` | `currencySettingsOutput` | session-or-api-key |
+| `currency.refreshRates` | mutation | `POST /currency/rates/refresh` | `none` | `currencySettingsOutput` | session-or-api-key |
 
 ### `dashboard`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `dashboard.summary` | query | `GET /rest/dashboard/summary` | `dashboardSummaryInput` | `dashboardSummaryOutput` | session-or-api-key |
+| `dashboard.summary` | query | `GET /dashboard/summary` | `dashboardSummaryInput` | `dashboardSummaryOutput` | session-or-api-key |
 
 ### `deals`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `deals.list` | query | `POST /rest/deals/search` | `dealListInput` | `dealListOutput` | session-or-api-key |
-| `deals.byId` | query | `GET /rest/deals/{id}` | `dealIdInput` | `dealDetailOutput` | session-or-api-key |
-| `deals.create` | mutation | `POST /rest/deals` | `dealCreateInput` | `dealCreateOutput` | session-or-api-key |
-| `deals.update` | mutation | `PATCH /rest/deals/{id}` | `dealUpdateArgs` | `dealMutateOutput` | session-or-api-key |
-| `deals.archive` | mutation | `POST /rest/deals/{id}/archive` | `dealIdInput` | `dealMutateOutput` | session-or-api-key |
-| `deals.restore` | mutation | `POST /rest/deals/{id}/restore` | `dealIdInput` | `dealMutateOutput` | session-or-api-key |
-| `deals.purge` | mutation | `DELETE /rest/deals/{id}` | `dealIdInput` | `dealMutateOutput` | session-or-api-key |
-| `deals.setStage` | mutation | `PATCH /rest/deals/{id}/stage` | `setStageInput` | `dealSetStageOutput` | session-or-api-key |
-| `deals.contactOptions` | query | `GET /rest/deals/{dealId}/contact-options` | `dealContactsInput` | `dealContactOptionsOutput` | session-or-api-key |
-| `deals.attachContact` | mutation | `POST /rest/deals/{dealId}/contacts` | `dealAttachContactInput` | `dealContactLinkOutput` | session-or-api-key |
-| `deals.detachContact` | mutation | `DELETE /rest/deals/{dealId}/contacts/{contactId}` | `dealDetachContactInput` | `dealContactLinkOutput` | session-or-api-key |
-| `deals.setContactRole` | mutation | `PATCH /rest/deals/{dealId}/contacts/{contactId}/role` | `dealContactRoleInput` | `dealContactRoleOutput` | session-or-api-key |
-| `deals.bulkAssignOwner` | mutation | `POST /rest/deals/bulk-assign-owner` | `dealBulkOwnerInput` | `dealBulkResultOutput` | session-or-api-key |
-| `deals.bulkSetStage` | mutation | `POST /rest/deals/bulk-set-stage` | `dealBulkStageInput` | `dealBulkResultOutput` | session-or-api-key |
-| `deals.bulkArchive` | mutation | `POST /rest/deals/bulk-archive` | `dealBulkInput` | `dealBulkResultOutput` | session-or-api-key |
-| `deals.bulkRestore` | mutation | `POST /rest/deals/bulk-restore` | `dealBulkInput` | `dealBulkResultOutput` | session-or-api-key |
-| `deals.bulkPurge` | mutation | `POST /rest/deals/bulk-purge` | `dealBulkInput` | `dealBulkResultOutput` | session-or-api-key |
+| `deals.list` | query | `POST /deals/search` | `dealListInput` | `dealListOutput` | session-or-api-key |
+| `deals.byId` | query | `GET /deals/{id}` | `dealIdInput` | `dealDetailOutput` | session-or-api-key |
+| `deals.create` | mutation | `POST /deals` | `dealCreateInput` | `dealCreateOutput` | session-or-api-key |
+| `deals.update` | mutation | `PATCH /deals/{id}` | `dealUpdateArgs` | `dealMutateOutput` | session-or-api-key |
+| `deals.archive` | mutation | `POST /deals/{id}/archive` | `dealIdInput` | `dealMutateOutput` | session-or-api-key |
+| `deals.restore` | mutation | `POST /deals/{id}/restore` | `dealIdInput` | `dealMutateOutput` | session-or-api-key |
+| `deals.purge` | mutation | `DELETE /deals/{id}` | `dealIdInput` | `dealMutateOutput` | session-or-api-key |
+| `deals.setStage` | mutation | `PATCH /deals/{id}/stage` | `setStageInput` | `dealSetStageOutput` | session-or-api-key |
+| `deals.contactOptions` | query | `GET /deals/{dealId}/contact-options` | `dealContactsInput` | `dealContactOptionsOutput` | session-or-api-key |
+| `deals.attachContact` | mutation | `POST /deals/{dealId}/contacts` | `dealAttachContactInput` | `dealContactLinkOutput` | session-or-api-key |
+| `deals.detachContact` | mutation | `DELETE /deals/{dealId}/contacts/{contactId}` | `dealDetachContactInput` | `dealContactLinkOutput` | session-or-api-key |
+| `deals.setContactRole` | mutation | `PATCH /deals/{dealId}/contacts/{contactId}/role` | `dealContactRoleInput` | `dealContactRoleOutput` | session-or-api-key |
+| `deals.bulkAssignOwner` | mutation | `POST /deals/bulk-assign-owner` | `dealBulkOwnerInput` | `dealBulkResultOutput` | session-or-api-key |
+| `deals.bulkSetStage` | mutation | `POST /deals/bulk-set-stage` | `dealBulkStageInput` | `dealBulkResultOutput` | session-or-api-key |
+| `deals.bulkArchive` | mutation | `POST /deals/bulk-archive` | `dealBulkInput` | `dealBulkResultOutput` | session-or-api-key |
+| `deals.bulkRestore` | mutation | `POST /deals/bulk-restore` | `dealBulkInput` | `dealBulkResultOutput` | session-or-api-key |
+| `deals.bulkPurge` | mutation | `POST /deals/bulk-purge` | `dealBulkInput` | `dealBulkResultOutput` | session-or-api-key |
 
 ### `enrichment`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `enrichment.queue` | query | `GET /rest/enrichment/queue` | `enrichmentQueueInput` | `enrichmentQueueOutput` | session-or-api-key |
+| `enrichment.queue` | query | `GET /enrichment/queue` | `enrichmentQueueInput` | `enrichmentQueueOutput` | session-or-api-key |
 
 ### `fields`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `fields.list` | query | `GET /rest/fields` | `fieldListInput` | `fieldListOutput` | session-or-api-key |
-| `fields.byKey` | query | `GET /rest/fields/{entity}/{key}` | `fieldByKeyInput` | `serializedFieldOutput` | session-or-api-key |
-| `fields.filters` | query | `GET /rest/fields/{entity}/filterable` | `fieldEntityInput` | `fieldFiltersOutput` | session-or-api-key |
-| `fields.coverage` | query | `GET /rest/fields/{id}/coverage` | `fieldIdInput` | `fieldCoverageOutput` | session-or-api-key |
-| `fields.create` | mutation | `POST /rest/fields` | `fieldCreateInput` | `serializedFieldOutput` | session-or-api-key |
-| `fields.update` | mutation | `PATCH /rest/fields/{id}` | `fieldUpdateArgs` | `serializedFieldOutput` | session-or-api-key |
-| `fields.reorder` | mutation | `POST /rest/fields/reorder` | `fieldReorderInput` | `fieldReorderOutput` | session-or-api-key |
-| `fields.archive` | mutation | `POST /rest/fields/{id}/archive` | `fieldIdInput` | `serializedFieldOutput` | session-or-api-key |
-| `fields.restore` | mutation | `POST /rest/fields/{id}/restore` | `fieldIdInput` | `serializedFieldOutput` | session-or-api-key |
-| `fields.delete` | mutation | `DELETE /rest/fields/{id}` | `fieldIdInput` | `fieldDeleteOutput` | session-or-api-key |
-| `fields.backfill` | mutation | `POST /rest/fields/{id}/backfill` | `fieldIdInput` | `fieldBackfillOutput` | session-or-api-key |
+| `fields.list` | query | `GET /fields` | `fieldListInput` | `fieldListOutput` | session-or-api-key |
+| `fields.byKey` | query | `GET /fields/{entity}/{key}` | `fieldByKeyInput` | `serializedFieldOutput` | session-or-api-key |
+| `fields.filters` | query | `GET /fields/{entity}/filterable` | `fieldEntityInput` | `fieldFiltersOutput` | session-or-api-key |
+| `fields.coverage` | query | `GET /fields/{id}/coverage` | `fieldIdInput` | `fieldCoverageOutput` | session-or-api-key |
+| `fields.create` | mutation | `POST /fields` | `fieldCreateInput` | `serializedFieldOutput` | session-or-api-key |
+| `fields.update` | mutation | `PATCH /fields/{id}` | `fieldUpdateArgs` | `serializedFieldOutput` | session-or-api-key |
+| `fields.reorder` | mutation | `POST /fields/reorder` | `fieldReorderInput` | `fieldReorderOutput` | session-or-api-key |
+| `fields.archive` | mutation | `POST /fields/{id}/archive` | `fieldIdInput` | `serializedFieldOutput` | session-or-api-key |
+| `fields.restore` | mutation | `POST /fields/{id}/restore` | `fieldIdInput` | `serializedFieldOutput` | session-or-api-key |
+| `fields.delete` | mutation | `DELETE /fields/{id}` | `fieldIdInput` | `fieldDeleteOutput` | session-or-api-key |
+| `fields.backfill` | mutation | `POST /fields/{id}/backfill` | `fieldIdInput` | `fieldBackfillOutput` | session-or-api-key |
 
 ### `google`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `google.status` | query | `GET /rest/google/status` | `none` | `googleConnectionStatusOutput` | session-or-api-key |
-| `google.purgeSyncedData` | mutation | `POST /rest/google/purge-synced-data` | `none` | `purgeSyncedDataOutput` | session-or-api-key |
-| `google.revokeAccess` | mutation | `POST /rest/google/revoke` | `none` | `revokeAccessOutput` | session-or-api-key |
-| `google.syncNow` | mutation | `POST /rest/google/sync` | `none` | `googleConnectionStatusOutput` | session-or-api-key |
-| `google.setAutoCreate` | mutation | `PATCH /rest/google/auto-create` | `setAutoCreateInput` | `googleConnectionStatusOutput` | session-or-api-key |
-| `google.suppressDomain` | mutation | `POST /rest/google/suppress-domain` | `suppressDomainInput` | `suppressDomainOutput` | session-or-api-key |
-| `google.thread` | query | `GET /rest/google/threads/{threadId}` | `threadInput` | `emailThreadOutput` | session-or-api-key |
-| `google.event` | query | `GET /rest/google/events/{eventId}` | `calendarEventInput` | `calendarEventOutput` | session-or-api-key |
+| `google.status` | query | `GET /google/status` | `none` | `googleConnectionStatusOutput` | session-or-api-key |
+| `google.purgeSyncedData` | mutation | `POST /google/purge-synced-data` | `none` | `purgeSyncedDataOutput` | session-or-api-key |
+| `google.revokeAccess` | mutation | `POST /google/revoke` | `none` | `revokeAccessOutput` | session-or-api-key |
+| `google.syncNow` | mutation | `POST /google/sync` | `none` | `googleConnectionStatusOutput` | session-or-api-key |
+| `google.setAutoCreate` | mutation | `PATCH /google/auto-create` | `setAutoCreateInput` | `googleConnectionStatusOutput` | session-or-api-key |
+| `google.suppressDomain` | mutation | `POST /google/suppress-domain` | `suppressDomainInput` | `suppressDomainOutput` | session-or-api-key |
+| `google.thread` | query | `GET /google/threads/{threadId}` | `threadInput` | `emailThreadOutput` | session-or-api-key |
+| `google.event` | query | `GET /google/events/{eventId}` | `calendarEventInput` | `calendarEventOutput` | session-or-api-key |
 
 ### `microsoft`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `microsoft.status` | query | `GET /rest/microsoft/status` | `none` | `microsoftConnectionStatusOutput` | session-or-api-key |
-| `microsoft.purgeSyncedData` | mutation | `POST /rest/microsoft/purge-synced-data` | `none` | `purgeSyncedDataOutput` | session-or-api-key |
-| `microsoft.revokeAccess` | mutation | `POST /rest/microsoft/revoke` | `none` | `revokeAccessOutput` | session-or-api-key |
-| `microsoft.syncNow` | mutation | `POST /rest/microsoft/sync` | `none` | `microsoftConnectionStatusOutput` | session-or-api-key |
-| `microsoft.setAutoCreate` | mutation | `PATCH /rest/microsoft/auto-create` | `setOutlookAutoCreateInput` | `microsoftConnectionStatusOutput` | session-or-api-key |
+| `microsoft.status` | query | `GET /microsoft/status` | `none` | `microsoftConnectionStatusOutput` | session-or-api-key |
+| `microsoft.purgeSyncedData` | mutation | `POST /microsoft/purge-synced-data` | `none` | `purgeSyncedDataOutput` | session-or-api-key |
+| `microsoft.revokeAccess` | mutation | `POST /microsoft/revoke` | `none` | `revokeAccessOutput` | session-or-api-key |
+| `microsoft.syncNow` | mutation | `POST /microsoft/sync` | `none` | `microsoftConnectionStatusOutput` | session-or-api-key |
+| `microsoft.setAutoCreate` | mutation | `PATCH /microsoft/auto-create` | `setOutlookAutoCreateInput` | `microsoftConnectionStatusOutput` | session-or-api-key |
 
 ### `savedViews`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `savedViews.list` | query | `GET /rest/saved-views` | `savedViewListInput` | `savedViewListOutput` | session-or-api-key |
-| `savedViews.create` | mutation | `POST /rest/saved-views` | `savedViewCreateInput` | `savedViewOutput` | session-or-api-key |
-| `savedViews.update` | mutation | `PATCH /rest/saved-views/{id}` | `savedViewUpdateArgs` | `savedViewOutput` | session-or-api-key |
-| `savedViews.delete` | mutation | `DELETE /rest/saved-views/{id}` | `savedViewIdInput` | `savedViewDeleteOutput` | session-or-api-key |
+| `savedViews.list` | query | `GET /saved-views` | `savedViewListInput` | `savedViewListOutput` | session-or-api-key |
+| `savedViews.create` | mutation | `POST /saved-views` | `savedViewCreateInput` | `savedViewOutput` | session-or-api-key |
+| `savedViews.update` | mutation | `PATCH /saved-views/{id}` | `savedViewUpdateArgs` | `savedViewOutput` | session-or-api-key |
+| `savedViews.delete` | mutation | `DELETE /saved-views/{id}` | `savedViewIdInput` | `savedViewDeleteOutput` | session-or-api-key |
 
 ### `search`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `search.quick` | query | `GET /rest/search` | `quickInput` | `quickOutput` | session-or-api-key |
+| `search.quick` | query | `GET /search` | `quickInput` | `quickOutput` | session-or-api-key |
 
 ### `settings`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `settings.agentModel` | query | `GET /rest/settings/agent-model` | `none` | `agentModelOutput` | session-or-api-key |
-| `settings.modelCatalog` | query | `GET /rest/settings/model-catalog` | `none` | `modelCatalogOutput` | session-or-api-key |
-| `settings.setAgentModel` | mutation | `PATCH /rest/settings/agent-model` | `setAgentModelInput` | `agentModelOutput` | session-or-api-key |
-| `settings.researchKey` | query | `GET /rest/settings/research-key` | `none` | `researchKeyOutput` | session-or-api-key |
-| `settings.setResearchKey` | mutation | `PATCH /rest/settings/research-key` | `setResearchKeyInput` | `researchKeyOutput` | session-or-api-key |
-| `settings.archiveRetention` | query | `GET /rest/settings/archive-retention` | `none` | `archiveRetentionOutput` | session-or-api-key |
-| `settings.setArchiveRetention` | mutation | `PATCH /rest/settings/archive-retention` | `setArchiveRetentionDaysInput` | `archiveRetentionOutput` | session-or-api-key |
+| `settings.agentModel` | query | `GET /settings/agent-model` | `none` | `agentModelOutput` | session-or-api-key |
+| `settings.modelCatalog` | query | `GET /settings/model-catalog` | `none` | `modelCatalogOutput` | session-or-api-key |
+| `settings.setAgentModel` | mutation | `PATCH /settings/agent-model` | `setAgentModelInput` | `agentModelOutput` | session-or-api-key |
+| `settings.researchKey` | query | `GET /settings/research-key` | `none` | `researchKeyOutput` | session-or-api-key |
+| `settings.setResearchKey` | mutation | `PATCH /settings/research-key` | `setResearchKeyInput` | `researchKeyOutput` | session-or-api-key |
+| `settings.archiveRetention` | query | `GET /settings/archive-retention` | `none` | `archiveRetentionOutput` | session-or-api-key |
+| `settings.setArchiveRetention` | mutation | `PATCH /settings/archive-retention` | `setArchiveRetentionDaysInput` | `archiveRetentionOutput` | session-or-api-key |
 
 ### `slack`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `slack.status` | query | `GET /rest/slack/status` | `none` | `slackStatusOutput` | session-or-api-key |
-| `slack.matches` | query | `GET /rest/slack/matches` | `none` | `slackMatchesOutput` | session-or-api-key |
-| `slack.channels` | query | `GET /rest/slack/channels` | `slackChannelsInput` | `slackChannelsOutput` | session-or-api-key |
-| `slack.joinChannel` | mutation | `POST /rest/slack/channels/{channelId}/join` | `slackJoinChannelInput` | `slackJoinChannelOutput` | session-or-api-key |
-| `slack.refreshPeople` | mutation | `POST /rest/slack/people/refresh` | `none` | `slackRefreshPeopleOutput` | session-or-api-key |
-| `slack.createChannel` | mutation | `POST /rest/slack/channels` | `slackCreateChannelInput` | `slackCreateChannelOutput` | session-or-api-key |
-| `slack.disconnect` | mutation | `DELETE /rest/slack/connection` | `none` | `slackDisconnectOutput` | session-or-api-key |
+| `slack.status` | query | `GET /slack/status` | `none` | `slackStatusOutput` | session-or-api-key |
+| `slack.matches` | query | `GET /slack/matches` | `none` | `slackMatchesOutput` | session-or-api-key |
+| `slack.channels` | query | `GET /slack/channels` | `slackChannelsInput` | `slackChannelsOutput` | session-or-api-key |
+| `slack.joinChannel` | mutation | `POST /slack/channels/{channelId}/join` | `slackJoinChannelInput` | `slackJoinChannelOutput` | session-or-api-key |
+| `slack.refreshPeople` | mutation | `POST /slack/people/refresh` | `none` | `slackRefreshPeopleOutput` | session-or-api-key |
+| `slack.createChannel` | mutation | `POST /slack/channels` | `slackCreateChannelInput` | `slackCreateChannelOutput` | session-or-api-key |
+| `slack.disconnect` | mutation | `DELETE /slack/connection` | `none` | `slackDisconnectOutput` | session-or-api-key |
 
 ### `sso`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `sso.signInOptions` | query | `GET /rest/sso/sign-in-options` | `none` | `ssoSignInOptionsOutput` | public |
-| `sso.settings` | query | `GET /rest/sso/settings` | `none` | `ssoSettingsOutput` | session-or-api-key |
-| `sso.list` | query | `GET /rest/sso` | `ssoProviderListInput` | `ssoProviderListOutput` | session-or-api-key |
-| `sso.register` | mutation | `POST /rest/sso` | `registerSsoProviderInput` | `ssoProviderOutput` | session-or-api-key |
-| `sso.remove` | mutation | `DELETE /rest/sso/{providerId}` | `deleteSsoProviderInput` | `deleteSsoProviderOutput` | session-or-api-key |
+| `sso.signInOptions` | query | `GET /sso/sign-in-options` | `none` | `ssoSignInOptionsOutput` | public |
+| `sso.settings` | query | `GET /sso/settings` | `none` | `ssoSettingsOutput` | session-or-api-key |
+| `sso.list` | query | `GET /sso` | `ssoProviderListInput` | `ssoProviderListOutput` | session-or-api-key |
+| `sso.register` | mutation | `POST /sso` | `registerSsoProviderInput` | `ssoProviderOutput` | session-or-api-key |
+| `sso.remove` | mutation | `DELETE /sso/{providerId}` | `deleteSsoProviderInput` | `deleteSsoProviderOutput` | session-or-api-key |
 
 ### `tracking`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `tracking.settings` | query | `GET /rest/tracking/settings` | `none` | `trackingSettingsOutput` | session-or-api-key |
-| `tracking.setFlag` | mutation | `PATCH /rest/tracking/flags` | `trackingFlagInput` | `z.void()` | session-or-api-key |
-| `tracking.setCookieLifetime` | mutation | `PATCH /rest/tracking/cookie-lifetime` | `cookieLifetimeInput` | `z.void()` | session-or-api-key |
-| `tracking.addDomain` | mutation | `POST /rest/tracking/domains` | `addDomainInput` | `trackedDomainOutput` | session-or-api-key |
-| `tracking.removeDomain` | mutation | `DELETE /rest/tracking/domains/{id}` | `removeDomainInput` | `z.void()` | session-or-api-key |
-| `tracking.rotateSiteId` | mutation | `POST /rest/tracking/site-id/rotate` | `none` | `rotateSiteIdOutput` | session-or-api-key |
-| `tracking.verify` | mutation | `POST /rest/tracking/verify` | `verifyInput` | `verifyOutput` | session-or-api-key |
-| `tracking.sources` | query | `GET /rest/tracking/sources` | `none` | `sourcesOutput` | session-or-api-key |
-| `tracking.companyActivity` | query | `GET /rest/tracking/companies/{companyId}/activity` | `companyActivityInput` | `websiteActivityOutput` | session-or-api-key |
-| `tracking.contactActivity` | query | `GET /rest/tracking/contacts/{contactId}/activity` | `contactActivityInput` | `websiteActivityOutput` | session-or-api-key |
+| `tracking.settings` | query | `GET /tracking/settings` | `none` | `trackingSettingsOutput` | session-or-api-key |
+| `tracking.setFlag` | mutation | `PATCH /tracking/flags` | `trackingFlagInput` | `z.void()` | session-or-api-key |
+| `tracking.setCookieLifetime` | mutation | `PATCH /tracking/cookie-lifetime` | `cookieLifetimeInput` | `z.void()` | session-or-api-key |
+| `tracking.addDomain` | mutation | `POST /tracking/domains` | `addDomainInput` | `trackedDomainOutput` | session-or-api-key |
+| `tracking.removeDomain` | mutation | `DELETE /tracking/domains/{id}` | `removeDomainInput` | `z.void()` | session-or-api-key |
+| `tracking.rotateSiteId` | mutation | `POST /tracking/site-id/rotate` | `none` | `rotateSiteIdOutput` | session-or-api-key |
+| `tracking.verify` | mutation | `POST /tracking/verify` | `verifyInput` | `verifyOutput` | session-or-api-key |
+| `tracking.sources` | query | `GET /tracking/sources` | `none` | `sourcesOutput` | session-or-api-key |
+| `tracking.companyActivity` | query | `GET /tracking/companies/{companyId}/activity` | `companyActivityInput` | `websiteActivityOutput` | session-or-api-key |
+| `tracking.contactActivity` | query | `GET /tracking/contacts/{contactId}/activity` | `contactActivityInput` | `websiteActivityOutput` | session-or-api-key |
 
 ### `users`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
 | `users.me` | query | Not exposed over REST | `none` | `inferred` | session-or-api-key |
-| `users.list` | query | `GET /rest/users` | `none` | `usersListOutput` | session-or-api-key |
+| `users.list` | query | `GET /users` | `none` | `usersListOutput` | session-or-api-key |
 
 ### `workspace`
 
 | tRPC procedure | Type | REST bridge | Input schema | Output schema | Access |
 | --- | --- | --- | --- | --- | --- |
-| `workspace.get` | query | `GET /rest/workspace` | `none` | `workspaceOutput` | session-or-api-key |
-| `workspace.members` | query | `POST /rest/workspace/members/search` | `memberListInput` | `memberListOutput` | session-or-api-key |
-| `workspace.update` | mutation | `PATCH /rest/workspace` | `updateWorkspaceInput` | `workspaceOutput` | session-or-api-key |
-| `workspace.setMemberRole` | mutation | `PATCH /rest/workspace/members/{memberId}/role` | `setMemberRoleInput` | `workspaceMemberOutput` | session-or-api-key |
+| `workspace.get` | query | `GET /workspace` | `none` | `workspaceOutput` | session-or-api-key |
+| `workspace.gate` | query | Not exposed over REST | `none` | `workspaceGate` | session-or-api-key |
+| `workspace.members` | query | `POST /workspace/members/search` | `memberListInput` | `memberListOutput` | session-or-api-key |
+| `workspace.update` | mutation | `PATCH /workspace` | `updateWorkspaceInput` | `workspaceOutput` | session-or-api-key |
+| `workspace.setMemberRole` | mutation | `PATCH /workspace/members/{memberId}/role` | `setMemberRoleInput` | `workspaceMemberOutput` | session-or-api-key |
 
 
 ## Evidence, findings, and source paths
 
 | Evidence | Finding | Source path |
 | --- | --- | --- |
-| tRPC router AST contains 160 decorated procedures | The application exposes 160 tRPC procedures | `apps/api/src/**/*.router.ts` |
-| Generated router contains 160 procedure definitions | Generated client types match the router count | `apps/api/src/generated/server.ts` |
-| 159 procedures contain `restMeta` | The REST bridge exposes 159 operations | `apps/api/src/trpc/openapi.ts` |
+| tRPC router AST contains 177 decorated procedures | The application exposes 177 tRPC procedures | `apps/api/src/**/*.router.ts` |
+| Generated router contains 177 procedure definitions | Generated client types match the router count | `apps/api/src/generated/server.ts` |
+| 159 procedures use `restMeta`, 11 asset procedures, and 5 appointment procedures carry REST metadata | The REST bridge exposes 175 root-path operations | `apps/api/src/**/*.router.ts`, `apps/api/src/assets/asset-openapi.ts`, `apps/api/src/appointments/appointment-openapi.ts` |
+| Merged runtime OpenAPI contains 160 paths | The document includes native controller paths and 175 REST operations | `/openapi.json` |
 | Better Auth installs session, OAuth, SSO, and API-key plugins | Better Auth mounts a larger protocol surface | `packages/auth/src/auth.ts` |
 | `AuthMiddleware` requires a request principal | Protected tRPC routes reject anonymous access | `apps/api/src/trpc/middlewares/auth.middleware.ts` |
 | `SessionOnlyMiddleware` requires a session principal | API-key management requires browser sessions | `apps/api/src/trpc/middlewares/session-only.middleware.ts` |
@@ -1463,7 +1497,7 @@ Run tRPC generation after adding or changing a procedure.
 
 Commit `apps/api/src/generated/server.ts` with router changes.
 
-Keep `restMeta` on every supported REST bridge procedure.
+Keep REST metadata on every supported REST bridge procedure.
 
 Set `protect: false` only for intentionally public procedures.
 

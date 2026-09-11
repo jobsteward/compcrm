@@ -1,10 +1,7 @@
 import type { OpenAPIObject } from "trpc-to-openapi";
 import { z } from "zod";
 import { type RestMethod, restMeta } from "../trpc/openapi";
-import {
-	canonicalResourcePath,
-	isProjectResourcePath,
-} from "./asset-public-routes";
+import { isProjectResourcePath } from "./asset-public-routes";
 import { assetErrorEnvelopeSchema } from "./assets.contracts";
 
 const requestHeaders = z.object({
@@ -33,43 +30,40 @@ export function assetRestMeta(method: RestMethod, path: `/${string}`) {
 }
 
 export const assetRoutes = {
-	createUpload: assetRestMeta("POST", "/v1/projects/{projectId}/asset-uploads"),
+	createUpload: assetRestMeta("POST", "/projects/{projectId}/asset-uploads"),
 	getUpload: assetRestMeta(
 		"GET",
-		"/v1/projects/{projectId}/asset-uploads/{uploadId}",
+		"/projects/{projectId}/asset-uploads/{uploadId}",
 	),
 	renewUpload: assetRestMeta(
 		"POST",
-		"/v1/projects/{projectId}/asset-uploads/{uploadId}/url",
+		"/projects/{projectId}/asset-uploads/{uploadId}/url",
 	),
 	confirmUpload: assetRestMeta(
 		"POST",
-		"/v1/projects/{projectId}/asset-uploads/{uploadId}/confirm",
+		"/projects/{projectId}/asset-uploads/{uploadId}/confirm",
 	),
 	cancelUpload: assetRestMeta(
 		"DELETE",
-		"/v1/projects/{projectId}/asset-uploads/{uploadId}",
+		"/projects/{projectId}/asset-uploads/{uploadId}",
 	),
-	listCustomerAssets: assetRestMeta("GET", "/v1/customers/{customerId}/assets"),
-	listProjectAssets: assetRestMeta("GET", "/v1/projects/{projectId}/assets"),
-	getAsset: assetRestMeta("GET", "/v1/projects/{projectId}/assets/{assetId}"),
-	updateAsset: assetRestMeta(
-		"PATCH",
-		"/v1/projects/{projectId}/assets/{assetId}",
-	),
+	listCustomerAssets: assetRestMeta("GET", "/customers/{customerId}/assets"),
+	listProjectAssets: assetRestMeta("GET", "/projects/{projectId}/assets"),
+	getAsset: assetRestMeta("GET", "/projects/{projectId}/assets/{assetId}"),
+	updateAsset: assetRestMeta("PATCH", "/projects/{projectId}/assets/{assetId}"),
 	downloadAsset: assetRestMeta(
 		"GET",
-		"/v1/projects/{projectId}/assets/{assetId}/download",
+		"/projects/{projectId}/assets/{assetId}/download",
 	),
 	deleteAsset: assetRestMeta(
 		"DELETE",
-		"/v1/projects/{projectId}/assets/{assetId}",
+		"/projects/{projectId}/assets/{assetId}",
 	),
 };
 
 export function describeAssetErrors(document: OpenAPIObject): void {
 	for (const [path, methods] of Object.entries(document.paths ?? {})) {
-		if (!isProjectResourcePath(canonicalResourcePath(path))) continue;
+		if (!isProjectResourcePath(path)) continue;
 		for (const method of ["get", "post", "patch", "delete"] as const) {
 			const responses = methods[method]?.responses;
 			if (!responses) continue;

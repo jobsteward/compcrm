@@ -19,14 +19,14 @@ import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutpu
 import { projectAppointmentCreateInput, appointmentDetailSchema, projectAppointmentListInput, appointmentListSchema, projectAppointmentInput, projectAppointmentUpdateInput, appointmentArchiveSchema } from "../appointments/appointments.contracts";
 import { projectUploadCreateInput, uploadGrantSchema, projectUploadInput, uploadStateSchema, uploadConfirmationSchema, uploadCancellationSchema, customerAssetListArgs, assetListSchema, projectAssetListInput, projectAssetInput, assetDetailSchema, assetDownloadSchema, assetDeletionSchema } from "../assets/assets.contracts";
 import { projectAssetMetadataUpdateInput } from "../assets/asset-metadata.contracts";
-import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
+import { companyListInput, companyListOutput, companyOptionsInput, companyOptionOutput, companyIdInput, companyDetailOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
 import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
 import { conversationListInput, conversationListOutput, builderListOutput, builderResourceSearchInput, builderResourcesOutput, conversationIdInput, builderConversationDetailOutput, conversationEventsInput, conversationEventsOutput, conversationSaveInput, conversationIdOutput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, builderResponseRatingOutput, conversationShareStatusOutput, conversationShareTokenOutput, sharedConversationInput, sharedConversationOutput } from "../conversations/conversations.contracts";
 import { currencySettingsOutput, setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput, dashboardSummaryOutput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealListOutput, dealIdInput, dealDetailOutput, dealCreateInput, dealCreateOutput, dealUpdateArgs, dealMutateOutput, setStageInput, dealSetStageOutput, dealContactsInput, dealContactOptionsOutput, dealAttachContactInput, dealContactLinkOutput, dealDetachContactInput, dealContactRoleInput, dealContactRoleOutput, dealBulkOwnerInput, dealBulkResultOutput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
 import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
-import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
+import { fieldListInput, fieldListOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldByKeyInput, serializedFieldOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
@@ -217,13 +217,13 @@ const appRouter = t.router({
       .input(companyListInput)
       .output(companyListOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    byId: publicProcedure
-      .input(companyIdInput)
-      .output(companyDetailOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     options: publicProcedure
       .input(companyOptionsInput)
       .output(companyOptionOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    byId: publicProcedure
+      .input(companyIdInput)
+      .output(companyDetailOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     create: publicProcedure
       .input(companyCreateInput)
@@ -559,10 +559,6 @@ const appRouter = t.router({
       .input(fieldListInput)
       .output(fieldListOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
-    byKey: publicProcedure
-      .input(fieldByKeyInput)
-      .output(serializedFieldOutput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     filters: publicProcedure
       .input(fieldEntityInput)
       .output(fieldFiltersOutput)
@@ -570,6 +566,10 @@ const appRouter = t.router({
     coverage: publicProcedure
       .input(fieldIdInput)
       .output(fieldCoverageOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    byKey: publicProcedure
+      .input(fieldByKeyInput)
+      .output(serializedFieldOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     create: publicProcedure
       .input(fieldCreateInput)

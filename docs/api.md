@@ -127,7 +127,7 @@ self-hoster's admin cannot redeploy.
 - `organizationProvisioning: { disabled: true }` prevents SSO from creating tenants.
   Administrators create the organization and owner membership first.
 
-## tRPC is the data surface; REST is auth and health only
+## tRPC is the data surface; REST exposes the same procedures
 
 ### Three credentials, one principal
 
@@ -166,11 +166,11 @@ The root well-known routes expose authorization-server and protected-resource me
 
 Customer and project files use the [asset API contract](./asset-api-contract.md).
 `assets.*` supplies eleven REST operations under `/projects` and `/customers`.
-Existing `/rest/v1` asset routes remain deprecated aliases to the same procedures.
 `appointments.*` supplies five managed appointment operations under `/projects`.
+All 175 tRPC REST operations use root resource paths.
 See the [appointment contract](./appointment-api-contract.md) for lifecycle, tenant checks, and file retention.
 The routes use the existing principal and OAuth scopes.
-Both asset path families and appointment routes return a structured error envelope and disable response caching.
+Asset and appointment routes return a structured error envelope and disable response caching.
 The other REST routes retain their existing response format.
 
 `AssetStorageJob` holds deterministic file finalization and deletion work.
@@ -180,8 +180,9 @@ Successful deletion retains a cleanup record for delayed writes and stale worker
 See [asset storage operations](./assets-storage-operations.md) before enabling R2.
 
 `GET /openapi.json` serves one document: Nest controllers and the tRPC REST bridge.
-Public project resources use root paths. Unrelated procedures keep their `/rest` paths.
-OpenAPI lists the actual paths, including deprecated asset aliases with distinct operation IDs.
+All tRPC REST metadata uses root resource paths.
+The merged OpenAPI document contains 160 paths, including native controller paths and 175 tRPC REST operations.
+The OpenAPI document lists canonical tRPC paths only. It exposes no tRPC REST compatibility aliases.
 Swagger UI renders it at `/`.
 `createApp` builds both halves and merges them, so nothing is generated at build
 time and no file is checked in — the document is whatever the routers are.

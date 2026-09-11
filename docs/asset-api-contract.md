@@ -14,10 +14,10 @@ Transcription, mobile implementation, mailbox fetching, customer matching, and p
 
 Base URL: `https://api.jobsteward.ai`.
 All paths below are relative to this base. All CRM requests and responses use JSON.
-Existing `/rest/v1` asset routes remain available as deprecated aliases to the same operations.
-Both path families share request identities. No version header is required.
-Returned `statusUrl` values are origin-relative. Resolve them against `https://api.jobsteward.ai` without adding a prefix.
-Cached legacy confirmation responses return the canonical status URL for the same upload.
+Canonical public paths start at `/projects` and `/customers`.
+No asset compatibility HTTP aliases are exposed. No version header is required.
+Returned `statusUrl` values are origin-relative and use the canonical `/projects/...` path.
+Historical persisted confirmation responses normalize legacy `statusUrl` values to the canonical path before replay.
 The API transfers metadata only. Callers transfer original file bytes directly to private R2 storage.
 Any file format is accepted. No filename extension or media-type allowlist applies.
 
@@ -491,12 +491,11 @@ R2 quota failures and operational storage metrics remain separate from this API 
 ## Implementation boundaries and acceptance
 
 Use a shared asset service and typed schemas. Public paths start at `/projects` and `/customers`.
-Retain `/rest/v1` aliases for existing callers. Do not add `/rest/projects` or `/rest/customers` aliases.
-The repository currently builds REST routes from tRPC metadata and publishes OpenAPI at `/openapi.json`.
+The repository builds root REST routes from tRPC metadata and publishes OpenAPI at `/openapi.json`.
 Asset operations use that mechanism. Regenerate router types after changing their schemas. Do not commit generated OpenAPI.
 The error middleware maps HTTP 413 and 503 to `PAYLOAD_TOO_LARGE` and `SERVICE_UNAVAILABLE` and preserves the domain error.
-The response adapter supplies the defined JSON envelope for both asset path families and appointment routes.
-Unrelated CRM routes retain their existing error format and `/rest` paths.
+The response adapter supplies the defined JSON envelope for asset and appointment routes.
+Unrelated tRPC procedures use root paths and retain their existing error format.
 The generated OpenAPI document describes asset request headers and the same error envelope. State conflicts use HTTP 409.
 Keep finalization and deletion durable outside the request lifetime. API success cannot depend on process-local background promises.
 Use the storage jobs and authenticated cron route defined above. This storage feature does not start intelligence or transcription work.

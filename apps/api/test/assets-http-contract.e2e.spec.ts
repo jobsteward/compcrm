@@ -46,7 +46,7 @@ describe("Asset HTTP contract compatibility", () => {
 		expect(confirmation.body.error.details.state).toBe("CANCELED");
 	});
 
-	it("publishes asset aliases and leaves old REST error formatting unchanged", async () => {
+	it("publishes root assets and preserves CRM error formatting", async () => {
 		const document = await request(app.getHttpServer())
 			.get("/openapi.json")
 			.expect(200);
@@ -64,10 +64,9 @@ describe("Asset HTTP contract compatibility", () => {
 		expect(operations).toHaveLength(11);
 		const createOperation =
 			document.body.paths["/projects/{projectId}/asset-uploads"].post;
-		const legacyOperation =
-			document.body.paths["/rest/v1/projects/{projectId}/asset-uploads"].post;
-		expect(legacyOperation.deprecated).toBe(true);
-		expect(legacyOperation.operationId).not.toBe(createOperation.operationId);
+		expect(
+			Object.keys(document.body.paths).some((path) => path.startsWith("/rest")),
+		).toBe(false);
 		expect(createOperation.parameters).toContainEqual(
 			expect.objectContaining({
 				name: "Idempotency-Key",
@@ -80,7 +79,7 @@ describe("Asset HTTP contract compatibility", () => {
 				.properties.error.required,
 		).toContain("requestId");
 		const legacy = await request(app.getHttpServer())
-			.get("/rest/companies/missing")
+			.get("/companies/missing")
 			.expect(401);
 		expect(legacy.body.code).toBe("UNAUTHORIZED");
 		expect(legacy.body).not.toHaveProperty("error");

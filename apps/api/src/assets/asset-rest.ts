@@ -3,10 +3,7 @@ import type { TRPCError } from "@trpc/server";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { AssetError } from "./asset-error";
-import {
-	canonicalResourcePath,
-	isProjectResourcePath,
-} from "./asset-public-routes";
+import { isProjectResourcePath } from "./asset-public-routes";
 import { assetErrorEnvelopeSchema } from "./assets.contracts";
 
 const domainFailure = assetErrorEnvelopeSchema.shape.error
@@ -30,7 +27,12 @@ type AssetRequestState = { requestId: string; failure?: AssetFailure };
 const requests = new WeakMap<Request, AssetRequestState>();
 
 export function prepareAssetRestResponse(req: Request, res: Response): void {
-	if (!isProjectResourcePath(canonicalResourcePath(req.path))) return;
+	if (
+		!isProjectResourcePath(
+			new URL(req.originalUrl, "http://localhost").pathname,
+		)
+	)
+		return;
 	const supplied = req.header("X-Request-Id");
 	const requestId =
 		supplied && /^[A-Za-z0-9._:-]{1,128}$/.test(supplied)
@@ -56,9 +58,7 @@ export function validateAssetRestRequest(req: Request): void {
 	if (!requests.has(req)) return;
 	const url = new URL(req.originalUrl, "http://localhost");
 	const forbiddenQuery = ["customerId", "uploadId", "assetId", "appointmentId"];
-	if (
-		!/^\/customers\/[^/]+\/assets\/?$/.test(canonicalResourcePath(url.pathname))
-	)
+	if (!/^\/customers\/[^/]+\/assets\/?$/i.test(url.pathname))
 		forbiddenQuery.push("projectId");
 	if (forbiddenQuery.some((key) => url.searchParams.has(key))) {
 		throw new AssetError(
