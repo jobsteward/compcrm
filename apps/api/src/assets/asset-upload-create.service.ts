@@ -9,6 +9,7 @@ import { ASSETS } from "./asset-config";
 import { AssetError } from "./asset-error";
 import { AssetMutations, hashAssetRequest } from "./asset-mutation.service";
 import type { AssetStorageService } from "./asset-storage.service";
+import { createAssetStorageKeys } from "./asset-storage-keys";
 import {
 	renewUploadGrant,
 	requireAssetStorage,
@@ -131,8 +132,12 @@ export class AssetUploadCreation {
 						emailAttachmentId: input.emailSource?.attachmentId,
 						metadataHash,
 						bucket: this.storage.bucket(),
-						temporaryKey: `temporary/${id}`,
-						finalKey: `assets/${randomUUID()}`,
+						...createAssetStorageKeys({
+							organizationId: project.organizationId,
+							projectId: project.id,
+							uploadId: id,
+							objectId: randomUUID(),
+						}),
 						expiresAt,
 						grantExpiresAt,
 						reservationUntil: new Date(

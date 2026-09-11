@@ -15,6 +15,24 @@ All four variables are optional. When one value is missing, the API starts witho
 
 Create the bucket in Cloudflare R2. Keep public access disabled. Use one bucket for the deployment and keep temporary objects under the `temporary/` prefix. Final object keys stay outside this prefix.
 
+New uploads use the authenticated organization's project record to generate object keys.
+For organization `org_123` and project `project_456`, keys have this structure:
+
+```text
+temporary/org_123/projects/project_456/upload_abc
+org_123/projects/project_456/assets/object_789
+```
+
+The final object ID is independent of the upload and asset IDs.
+Names, file types, and optional appointment references remain in database metadata.
+Renaming a file or project does not change its key.
+Prefixes organize objects. Existing organization and project authorization checks still control access.
+
+Existing uploads and assets retain their stored bucket and keys, including `temporary/UUID` and `assets/UUID` keys.
+Grant renewal, finalization, downloads, and deletion use those stored locations without reconstructing keys.
+This change requires no object migration or lifecycle-rule change.
+Keep existing cleanup jobs so delayed writes to old keys still receive deletion checks.
+
 Configure an R2 lifecycle rule for `temporary/` with a seven-day expiration. The rule is a backstop for canceled uploads, expired grants, failed finalization, and writes that arrive after a grant expires. Application cleanup still attempts deletion immediately and records the result. Lifecycle deletion is eventual. See [R2 object lifecycles](https://developers.cloudflare.com/r2/buckets/object-lifecycles/).
 
 Configure bucket CORS for the application origins that perform direct transfers. A starting policy is:
