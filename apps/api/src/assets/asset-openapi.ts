@@ -1,6 +1,10 @@
 import type { OpenAPIObject } from "trpc-to-openapi";
 import { z } from "zod";
 import { type RestMethod, restMeta } from "../trpc/openapi";
+import {
+	canonicalResourcePath,
+	isProjectResourcePath,
+} from "./asset-public-routes";
 import { assetErrorEnvelopeSchema } from "./assets.contracts";
 
 const requestHeaders = z.object({
@@ -49,6 +53,10 @@ export const assetRoutes = {
 	listCustomerAssets: assetRestMeta("GET", "/v1/customers/{customerId}/assets"),
 	listProjectAssets: assetRestMeta("GET", "/v1/projects/{projectId}/assets"),
 	getAsset: assetRestMeta("GET", "/v1/projects/{projectId}/assets/{assetId}"),
+	updateAsset: assetRestMeta(
+		"PATCH",
+		"/v1/projects/{projectId}/assets/{assetId}",
+	),
 	downloadAsset: assetRestMeta(
 		"GET",
 		"/v1/projects/{projectId}/assets/{assetId}/download",
@@ -61,13 +69,8 @@ export const assetRoutes = {
 
 export function describeAssetErrors(document: OpenAPIObject): void {
 	for (const [path, methods] of Object.entries(document.paths ?? {})) {
-		if (
-			!/^\/v1\/(?:projects|customers)\/\{[^}]+\}\/(?:assets|asset-uploads)(?:\/|$)/.test(
-				path,
-			)
-		)
-			continue;
-		for (const method of ["get", "post", "delete"] as const) {
+		if (!isProjectResourcePath(canonicalResourcePath(path))) continue;
+		for (const method of ["get", "post", "patch", "delete"] as const) {
 			const responses = methods[method]?.responses;
 			if (!responses) continue;
 			for (const [status, response] of Object.entries(responses)) {

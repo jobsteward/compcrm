@@ -10,6 +10,7 @@ import {
 import type { z } from "zod";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
+import { projectAssetMetadataUpdateInput } from "./asset-metadata.contracts";
 import { assetRoutes } from "./asset-openapi";
 import { assetUser, idempotencyKey } from "./asset-request";
 import {
@@ -28,12 +29,10 @@ import {
 	uploadStateSchema,
 } from "./assets.contracts";
 import { AssetsService } from "./assets.service";
-
 @Router({ alias: "assets" })
 @UseMiddlewares(AuthMiddleware)
 export class AssetsRouter {
 	constructor(@Inject(AssetsService) private readonly assets: AssetsService) {}
-
 	@Mutation({
 		input: projectUploadCreateInput,
 		output: uploadGrantSchema,
@@ -51,7 +50,6 @@ export class AssetsRouter {
 			idempotencyKey(ctx),
 		);
 	}
-
 	@Query({
 		input: projectUploadInput,
 		output: uploadStateSchema,
@@ -67,7 +65,6 @@ export class AssetsRouter {
 			input.uploadId,
 		);
 	}
-
 	@Mutation({
 		input: projectUploadInput,
 		output: uploadGrantSchema,
@@ -84,7 +81,6 @@ export class AssetsRouter {
 			idempotencyKey(ctx),
 		);
 	}
-
 	@Mutation({
 		input: projectUploadInput,
 		output: uploadConfirmationSchema,
@@ -101,7 +97,6 @@ export class AssetsRouter {
 			idempotencyKey(ctx),
 		);
 	}
-
 	@Mutation({
 		input: projectUploadInput,
 		output: uploadCancellationSchema,
@@ -118,7 +113,6 @@ export class AssetsRouter {
 			idempotencyKey(ctx),
 		);
 	}
-
 	@Query({
 		input: customerAssetListArgs,
 		output: assetListSchema,
@@ -131,7 +125,6 @@ export class AssetsRouter {
 		const { customerId, ...query } = input;
 		return this.assets.listCustomerAssets(assetUser(ctx), customerId, query);
 	}
-
 	@Query({
 		input: projectAssetListInput,
 		output: assetListSchema,
@@ -144,7 +137,6 @@ export class AssetsRouter {
 		const { projectId, ...query } = input;
 		return this.assets.listProjectAssets(assetUser(ctx), projectId, query);
 	}
-
 	@Query({
 		input: projectAssetInput,
 		output: assetDetailSchema,
@@ -156,7 +148,24 @@ export class AssetsRouter {
 	) {
 		return this.assets.getAsset(assetUser(ctx), input.projectId, input.assetId);
 	}
-
+	@Mutation({
+		input: projectAssetMetadataUpdateInput,
+		output: assetDetailSchema,
+		meta: assetRoutes.updateAsset,
+	})
+	updateAsset(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof projectAssetMetadataUpdateInput>,
+	) {
+		const { projectId, assetId, ...body } = input;
+		return this.assets.updateAsset(
+			assetUser(ctx),
+			projectId,
+			assetId,
+			body,
+			idempotencyKey(ctx),
+		);
+	}
 	@Query({
 		input: projectAssetInput,
 		output: assetDownloadSchema,
@@ -172,7 +181,6 @@ export class AssetsRouter {
 			input.assetId,
 		);
 	}
-
 	@Mutation({
 		input: projectAssetInput,
 		output: assetDeletionSchema,

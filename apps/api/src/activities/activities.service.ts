@@ -10,6 +10,7 @@ import {
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { blankToNull } from "../crm/values";
 import { InjectScopedDatabase } from "../database/database.constants";
+import { archivedFilter } from "../trpc/list-input";
 import type {
 	ActivityCreateInput,
 	ActivityEntry,
@@ -79,7 +80,10 @@ export class ActivitiesService {
 	) {}
 
 	async timeline(input: TimelineInput): Promise<TimelineResult> {
-		const where = this.anchor(input);
+		const where = {
+			...this.anchor(input),
+			...archivedFilter(input.archived ?? false),
+		};
 		Object.assign(where, filterClause(input.filter));
 
 		const rows = await this.db.activity.findMany({
@@ -104,9 +108,14 @@ export class ActivitiesService {
 	}
 
 	async timelineCounts(
-		input: Pick<TimelineInput, "companyId" | "contactId" | "dealId">,
+		input: Pick<TimelineInput, "companyId" | "contactId" | "dealId"> & {
+			archived?: boolean;
+		},
 	): Promise<TimelineCounts> {
-		const anchor = this.anchor(input);
+		const anchor = {
+			...this.anchor(input),
+			...archivedFilter(input.archived ?? false),
+		};
 
 		const [all, notes, upcoming, done, email, meetings] = await Promise.all([
 			this.db.activity.count({ where: anchor }),

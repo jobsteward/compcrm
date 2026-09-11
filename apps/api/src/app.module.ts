@@ -5,6 +5,7 @@ import { AuthModule as BetterAuthModule } from "@thallesp/nestjs-better-auth";
 import { ActivitiesModule } from "./activities/activities.module";
 import { AgentModule } from "./agent/agent.module";
 import { ApiKeysModule } from "./api-keys/api-keys.module";
+import { AppointmentsModule } from "./appointments/appointments.module";
 import { ArchiveModule } from "./archive/archive.module";
 import { AssetsModule } from "./assets/assets.module";
 import { AuthModule } from "./auth/auth.module";
@@ -69,6 +70,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		DealsModule,
 		FieldsModule,
 		ActivitiesModule,
+		AppointmentsModule,
 		AgentModule,
 		EnrichmentModule,
 		DashboardModule,

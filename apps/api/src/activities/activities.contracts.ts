@@ -36,7 +36,16 @@ const TIMELINE_FILTERS = [
 
 export type TimelineFilter = (typeof TIMELINE_FILTERS)[number];
 
+const activityArchivedInput = z
+	.preprocess(
+		(value: string | boolean) =>
+			value === "true" ? true : value === "false" ? false : value,
+		z.boolean(),
+	)
+	.default(false);
+
 export const timelineInput = z.object({
+	archived: activityArchivedInput,
 	companyId: z.string().optional(),
 	contactId: z.string().optional(),
 	dealId: z.string().optional(),
@@ -48,6 +57,7 @@ export const timelineInput = z.object({
 export type TimelineInput = z.infer<typeof timelineInput>;
 
 export const timelineCountsInput = z.object({
+	archived: activityArchivedInput,
 	companyId: z.string().optional(),
 	contactId: z.string().optional(),
 	dealId: z.string().optional(),

@@ -145,6 +145,8 @@ export const assetSchema = z.object({
 	durationMilliseconds: z.number().int().nonnegative().nullable(),
 	capturedAt: z.iso.datetime().nullable(),
 	createdAt: z.iso.datetime(),
+	updatedAt: z.iso.datetime(),
+	version: z.number().int().positive(),
 	status: z.enum(["UNVERIFIED", "READY", "DELETING", "DELETED"]),
 	deletedAt: z.iso.datetime().nullable(),
 });

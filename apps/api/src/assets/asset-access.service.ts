@@ -113,6 +113,7 @@ export async function validateUploadActivity(
 	if (!activityId) return;
 	const activity = await tx.activity.findUnique({
 		where: { id: activityId },
+		include: { appointmentDetails: { select: { activityId: true } } },
 	});
 	if (!activity) missing();
 	if (activity.type !== "MEETING" || activity.dealId !== projectId)
@@ -120,5 +121,11 @@ export async function validateUploadActivity(
 			409,
 			"PROJECT_MISMATCH",
 			"The meeting belongs to another project.",
+		);
+	if (activity.appointmentDetails && activity.archivedAt)
+		throw new AssetError(
+			409,
+			"APPOINTMENT_ARCHIVED",
+			"Restore the appointment before linking files.",
 		);
 }

@@ -36,6 +36,7 @@ import {
 	savingValue,
 } from "@/components/crm/inline-field";
 import { OwnerCell } from "@/components/crm/owner-cell";
+import { ProjectWorkspace } from "@/components/crm/project-assets/project-workspace";
 import { DealStageMenu } from "@/components/crm/stage-change";
 import { StageStepper } from "@/components/crm/stage-stepper";
 import { Timeline } from "@/components/crm/timeline/timeline";
@@ -157,6 +158,17 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "activity",
 					label: "Activity",
 					content: <Timeline anchor={{ dealId: deal.id }} />,
+				},
+				{
+					value: "project",
+					label: "Project",
+					content: (
+						<ProjectWorkspace
+							projectId={deal.id}
+							defaultOwnerId={deal.owner.id}
+						/>
+					),
+					keepMounted: true,
 				},
 				{
 					value: "agent",

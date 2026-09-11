@@ -76,7 +76,9 @@ describe("Asset HTTP upload lifecycle", () => {
 			.set("Idempotency-Key", randomUUID())
 			.send({})
 			.expect(200);
-		expect(confirmed.body.statusUrl).toBe(`${base}/asset-uploads/${uploadId}`);
+		expect(confirmed.body.statusUrl).toBe(
+			`/projects/${projectId}/asset-uploads/${uploadId}`,
+		);
 		const processed = await app.get(AssetWorkerService).process();
 		expect(processed.processed).toBeGreaterThan(0);
 		expect(

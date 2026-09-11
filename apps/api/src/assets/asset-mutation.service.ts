@@ -35,6 +35,7 @@ export class AssetMutations {
 			uploadId?: string;
 			assetId?: string;
 			activityId?: string | null;
+			appointmentId?: string;
 			emailMessageId?: string;
 		},
 	) {
@@ -55,6 +56,19 @@ export class AssetMutations {
 					await findAssetUpload(tx, projectId, target.uploadId, actor);
 				if (target?.assetId)
 					await findProjectAsset(tx, projectId, target.assetId, actor);
+				if (
+					target?.appointmentId &&
+					!(await tx.activity.findFirst({
+						where: {
+							id: target.appointmentId,
+							dealId: projectId,
+							type: "MEETING",
+							appointmentDetails: { isNot: null },
+						},
+						select: { id: true },
+					}))
+				)
+					missing();
 				if (
 					target?.activityId &&
 					!(await tx.activity.findUnique({

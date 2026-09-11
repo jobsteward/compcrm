@@ -1,7 +1,7 @@
 ---
 title: Customer and project asset API
 status: implemented-pending-r2-verification
-updated: 2026-09-07
+updated: 2026-09-10
 ---
 
 # Customer and project asset API
@@ -12,9 +12,12 @@ Transcription, mobile implementation, mailbox fetching, customer matching, and p
 
 ## Common contract
 
-Base URL: `https://api.jobsteward.ai/rest/v1`.
+Base URL: `https://api.jobsteward.ai`.
 All paths below are relative to this base. All CRM requests and responses use JSON.
-Returned `statusUrl` values are origin-relative. Resolve them against `https://api.jobsteward.ai`, without adding `/rest/v1` again.
+Existing `/rest/v1` asset routes remain available as deprecated aliases to the same operations.
+Both path families share request identities. No version header is required.
+Returned `statusUrl` values are origin-relative. Resolve them against `https://api.jobsteward.ai` without adding a prefix.
+Cached legacy confirmation responses return the canonical status URL for the same upload.
 The API transfers metadata only. Callers transfer original file bytes directly to private R2 storage.
 Any file format is accepted. No filename extension or media-type allowlist applies.
 
@@ -25,7 +28,7 @@ The caller cannot set `customerId`, `storageKey`, uploader identity, or a storag
 Never select a customer's newest project automatically.
 
 Use existing CRM authentication and principal resolution. OAuth callers send `Authorization: Bearer <access-token>`.
-GET operations require `crm.read`. POST and DELETE operations require `crm.write`.
+GET operations require `crm.read`. POST, PATCH, and DELETE operations require `crm.write`.
 Existing session and API-key callers retain their current admission rules. Never embed a shared API key in mobile clients.
 Check record access on every operation, including retries. Missing or inaccessible records return `404 RESOURCE_NOT_FOUND`.
 Use the [OAuth implementation guide](./oauth-oidc-crm-implementation.md) for OAuth configuration.
@@ -54,8 +57,9 @@ Success on a state-changing request means the durable state change is accepted. 
 | E8 | GET | `/projects/{projectId}/assets/{assetId}` | Read asset metadata and deletion state. |
 | E9 | GET | `/projects/{projectId}/assets/{assetId}/download` | Obtain temporary file access. |
 | E10 | DELETE | `/projects/{projectId}/assets/{assetId}` | Delete one asset and its stored file. |
+| E11 | PATCH | `/projects/{projectId}/assets/{assetId}` | Update metadata and the optional appointment reference. |
 
-E1, E3, E4, E5, and E10 require `Idempotency-Key`.
+E1, E3, E4, E5, E10, and E11 require `Idempotency-Key`.
 
 ## E1: Create an upload
 
@@ -107,6 +111,9 @@ Never change the thread association during an asset upload.
 
 An accessible non-meeting activity, null activity project, or different activity project returns `409 PROJECT_MISMATCH`.
 An inaccessible activity returns `404 RESOURCE_NOT_FOUND`.
+An archived managed appointment rejects new upload intents with `409 APPOINTMENT_ARCHIVED`.
+Existing uploads can renew, confirm, and finish after appointment archive. Project archive restrictions remain separate.
+Generic project meetings remain valid references. See the [appointment contract](./appointment-api-contract.md).
 E1 and E3 reject archived projects with `409 PROJECT_ARCHIVED`; restore the project before starting or renewing uploads.
 E4 also rejects an archived project before accepting finalization. E2 and E5 remain available.
 Work accepted before archiving can finish, subject to the existing project-purge checks.
@@ -198,7 +205,7 @@ No new upload record, artifact, project binding, or metadata is created.
 ## E4: Confirm the upload
 
 Request body: `{}`.
-Return `{"uploadId": "upload_123", "statusUrl": "/rest/v1/projects/deal_bathroom_2026/asset-uploads/upload_123"}`.
+Return `{"uploadId": "upload_123", "statusUrl": "/projects/deal_bathroom_2026/asset-uploads/upload_123"}`.
 Acceptance atomically changes `PENDING` to `FINALIZING` and records durable finalization work.
 Repeat confirmation for `FINALIZING` or `READY` returns the same acknowledgement without another job or artifact.
 Confirming `FAILED`, `CANCELED`, or `EXPIRED` returns `409 UPLOAD_STATE_CONFLICT` with `details.state` set to that state.
@@ -254,12 +261,16 @@ E8 returns `{"asset": <Asset>}`. E6 and E7 return arrays of the same object.
   "durationMilliseconds": 3600000,
   "capturedAt": "2026-07-15T15:00:00Z",
   "createdAt": "2026-09-07T15:03:00Z",
+  "updatedAt": "2026-09-07T15:03:00Z",
+  "version": 1,
   "status": "READY",
   "deletedAt": null
 }
 ```
 
 Metadata follows E1 field types, with the migration exceptions below. `createdAt` is the artifact's original creation time.
+Existing artifacts receive `updatedAt = createdAt` and `version = 1` without storage verification.
+Metadata edits advance `updatedAt` and `version` together. Storage status changes do not advance the metadata version.
 `uploadedById` is a user ID or null for system imports and unknown historical attribution.
 `status` is `UNVERIFIED`, `READY`, `DELETING`, or `DELETED`.
 `UNVERIFIED` applies only to pre-existing artifacts awaiting storage inventory. New uploads become artifacts only after verification.
@@ -355,6 +366,18 @@ That automatic purge must enqueue the same storage cleanup as explicit project d
 Use the existing archive-retention setting. Do not add a separate asset-retention setting for archived projects.
 Keep the existing rule that a company with projects cannot be purged until those projects are purged.
 
+## E11: Update asset metadata
+
+Send required numeric `expectedVersion` and at least one of `fileName`, `kind`, or `activityId`.
+Use the filename and kind rules from E1. Unknown fields and immutable metadata changes return `400 VALIDATION_ERROR`.
+An omitted activity reference stays unchanged. Null removes the reference, not the project ownership.
+A new reference requires a meeting in the same project. Archived managed appointments reject new references.
+READY and UNVERIFIED assets accept edits. Edits never change bytes, storage keys, verification state, or upload request history.
+DELETING and DELETED assets return `409 ASSET_NOT_READY`. A stale version returns `409 VERSION_CONFLICT`.
+Return `{"asset": <Asset>}` with the new version and timestamp.
+Replay a successful request before checking its stale version. Read the current asset before submitting a correction with a new key.
+Archive does not invalidate replay. A removed or inaccessible supplied activity reference returns 404 before replay.
+
 ## Idempotency and email deduplication
 
 `Idempotency-Key` is a nonempty ASCII string, at most 128 characters. A UUID is recommended.
@@ -382,7 +405,7 @@ Manual reuploads with new idempotency keys are separate assets, even when filena
 
 ## Errors
 
-The versioned asset routes use the existing proposed mobile error envelope:
+Canonical and retained asset routes use the same error envelope:
 
 ```json
 {
@@ -410,6 +433,8 @@ Do not return provider payloads, private email text, stack traces, object keys, 
 | 409 | `PROJECT_MISMATCH` | Accessible activity, email binding, or project belongs to a different requested parent. |
 | 409 | `UPLOAD_STATE_CONFLICT`, `ASSET_NOT_READY` | Operation is unavailable in the current state. Include `details.state`. |
 | 409 | `PROJECT_ARCHIVED` | Restore the project before creating, renewing, or confirming an upload. |
+| 409 | `APPOINTMENT_ARCHIVED` | Restore the appointment before creating a new upload or asset reference. |
+| 409 | `VERSION_CONFLICT` | Read current asset metadata before submitting a correction. |
 | 413 | `UPLOAD_TOO_LARGE` | File exceeds the supported upload method. Include `details.maxBytes`. |
 | 429 | `UPLOAD_CAPACITY_EXCEEDED` | Caller has 20 outstanding temporary-object reservations. Retry after `Retry-After: 60`. |
 | 503 | `STORAGE_UNAVAILABLE` | R2 configuration is absent or storage is temporarily unavailable. |
@@ -465,11 +490,13 @@ R2 quota failures and operational storage metrics remain separate from this API 
 
 ## Implementation boundaries and acceptance
 
-Use a shared asset service and typed schemas. Keep public REST paths under `/rest/v1`.
+Use a shared asset service and typed schemas. Public paths start at `/projects` and `/customers`.
+Retain `/rest/v1` aliases for existing callers. Do not add `/rest/projects` or `/rest/customers` aliases.
 The repository currently builds REST routes from tRPC metadata and publishes OpenAPI at `/openapi.json`.
 Asset operations use that mechanism. Regenerate router types after changing their schemas. Do not commit generated OpenAPI.
 The error middleware maps HTTP 413 and 503 to `PAYLOAD_TOO_LARGE` and `SERVICE_UNAVAILABLE` and preserves the domain error.
-The asset response adapter supplies the defined JSON envelope for versioned asset routes. Unversioned routes retain their existing format.
+The response adapter supplies the defined JSON envelope for both asset path families and appointment routes.
+Unrelated CRM routes retain their existing error format and `/rest` paths.
 The generated OpenAPI document describes asset request headers and the same error envelope. State conflicts use HTTP 409.
 Keep finalization and deletion durable outside the request lifetime. API success cannot depend on process-local background promises.
 Use the storage jobs and authenticated cron route defined above. This storage feature does not start intelligence or transcription work.
