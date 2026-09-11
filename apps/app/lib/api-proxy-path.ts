@@ -1,5 +1,5 @@
 const canonicalResourcePath =
-	/^\/api\/(?:projects\/[^/]+\/(?:assets|asset-uploads|appointments)|customers\/[^/]+\/assets)(?:\/|$)/;
+	/^\/api\/(?:assets\/[^/]+|appointments\/[^/]+\/assets|projects\/[^/]+\/(?:assets|appointments))(?:\/|$)/;
 
 export function apiProxyPath(pathname: string): string {
 	return canonicalResourcePath.test(pathname)

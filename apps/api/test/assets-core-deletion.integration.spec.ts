@@ -58,21 +58,12 @@ describe("asset deletion and stale work", () => {
 
 	it("hides deleting assets and retries object deletion without duplicate jobs", async () => {
 		const result = await ready();
-		storage.deleteFailures = 1;
+		storage.deleteFailures = 2;
 		expect(
-			(
-				await service.deleteAsset(
-					actor,
-					projectId,
-					result.assetId,
-					randomUUID(),
-				)
-			).status,
+			(await service.deleteAsset(actor, result.assetId, randomUUID())).status,
 		).toBe("DELETING");
-		await service.deleteAsset(actor, projectId, result.assetId, randomUUID());
-		await expect(
-			service.downloadAsset(actor, projectId, result.assetId),
-		).rejects.toMatchObject({ code: "ASSET_NOT_READY" });
+		await service.deleteAsset(actor, result.assetId, randomUUID());
+		expect((await service.getAsset(actor, result.assetId)).download).toBeNull();
 		expect(
 			(
 				await service.listProjectAssets(actor, projectId, {
@@ -82,14 +73,15 @@ describe("asset deletion and stale work", () => {
 			).total,
 		).toBe(0);
 		await worker.process();
-		expect(
-			(await service.getAsset(actor, projectId, result.assetId)).asset.status,
-		).toBe("DELETING");
+		expect((await service.getAsset(actor, result.assetId)).asset.status).toBe(
+			"DELETING",
+		);
+		storage.deleteFailures = 0;
 		await due();
 		await worker.process();
-		expect(
-			(await service.getAsset(actor, projectId, result.assetId)).asset,
-		).toMatchObject({ status: "DELETED", deletedAt: expect.any(String) });
+		expect((await service.getAsset(actor, result.assetId)).asset).toMatchObject(
+			{ status: "DELETED", deletedAt: expect.any(String) },
+		);
 		expect(
 			await db.assetStorageJob.count({ where: { artifactId: result.assetId } }),
 		).toBe(1);
@@ -103,21 +95,19 @@ describe("asset deletion and stale work", () => {
 				storageKey: "unknown-original-location",
 			},
 		});
-		const detail = await service.getAsset(actor, projectId, legacy.id);
+		const detail = await service.getAsset(actor, legacy.id);
 		expect(detail.asset).toMatchObject({
 			status: "UNVERIFIED",
 			source: null,
 			sizeBytes: null,
 			uploadedById: null,
 		});
-		await expect(
-			service.downloadAsset(actor, projectId, legacy.id),
-		).rejects.toMatchObject({ code: "ASSET_NOT_READY" });
-		await service.deleteAsset(actor, projectId, legacy.id, randomUUID());
+		expect((await service.getAsset(actor, legacy.id)).download).toBeNull();
+		await service.deleteAsset(actor, legacy.id, randomUUID());
 		await worker.process();
-		expect(
-			(await service.getAsset(actor, projectId, legacy.id)).asset.status,
-		).toBe("DELETING");
+		expect((await service.getAsset(actor, legacy.id)).asset.status).toBe(
+			"DELETING",
+		);
 		const job = await db.assetStorageJob.findFirstOrThrow({
 			where: { artifactId: legacy.id },
 		});
@@ -128,10 +118,10 @@ describe("asset deletion and stale work", () => {
 	it("purges a project during conditional copy and removes its orphan final object", async () => {
 		const created = await create();
 		const upload = await put(created.upload.id);
-		await service.confirmUpload(
+		await service.updateAsset(
 			actor,
-			projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			randomUUID(),
 		);
 		storage.copyHook = async () => {
@@ -147,13 +137,18 @@ describe("asset deletion and stale work", () => {
 			await db.deal.findUnique({ where: { id: otherProjectId } }),
 		).not.toBeNull();
 		await expect(
-			service.getUpload(actor, projectId, created.upload.id),
+			service.getAsset(actor, created.asset.id),
 		).rejects.toBeInstanceOf(AssetError);
 	});
 	it("reconciles final objects from a stale copy after deletion already completes", async () => {
 		const created = await create();
 		const upload = await put(created.upload.id);
-		await service.confirmUpload(actor, projectId, upload.id, randomUUID());
+		await service.updateAsset(
+			actor,
+			upload.assetId as string,
+			{ uploadCompleted: true },
+			randomUUID(),
+		);
 		let release: (() => void) | undefined;
 		let copying: (() => void) | undefined;
 		const started = new Promise<void>((resolve) => {
@@ -174,14 +169,9 @@ describe("asset deletion and stale work", () => {
 			data: { leaseUntil: new Date(0) },
 		});
 		await worker.process();
-		const complete = await service.getUpload(actor, projectId, upload.id);
-		expect(complete.upload.status).toBe("READY");
-		await service.deleteAsset(
-			actor,
-			projectId,
-			complete.upload.assetId as string,
-			randomUUID(),
-		);
+		const complete = await service.getAsset(actor, created.asset.id);
+		expect(complete.asset.status).toBe("READY");
+		await service.deleteAsset(actor, created.asset.id, randomUUID());
 		await worker.process();
 		expect(storage.objects.has(upload.finalKey)).toBe(false);
 		storage.put(upload.temporaryKey);
@@ -189,7 +179,7 @@ describe("asset deletion and stale work", () => {
 		await staleWorker;
 		expect(storage.objects.has(upload.finalKey)).toBe(true);
 		await db.assetStorageJob.updateMany({
-			where: { artifactId: complete.upload.assetId },
+			where: { projectId },
 			data: { nextAttemptAt: new Date(0) },
 		});
 		await worker.process();

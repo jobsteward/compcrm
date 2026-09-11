@@ -1,3 +1,4 @@
+import { CONTEXT_DEV_SIGNUP_URL } from "@crm/db/settings";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import {
@@ -60,7 +61,7 @@ async function Settings() {
 		<HydrateClient>
 			<div className="flex max-w-3xl flex-col gap-6">
 				<WorkspaceForm />
-				<ResearchKey />
+				<ResearchKey signupUrl={CONTEXT_DEV_SIGNUP_URL} />
 				<ArchiveRetention />
 				<AgentModel />
 			</div>

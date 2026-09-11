@@ -4,7 +4,7 @@ import {
 	MAX_SLUG,
 	RESERVED_SLUGS,
 	workspaceSlug,
-} from "../src/workspace";
+} from "../src/workspace-slug";
 
 describe("workspaceSlug", () => {
 	it("is the company name a rep can read in the address bar", () => {

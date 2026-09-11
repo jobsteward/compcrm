@@ -7,7 +7,8 @@ import {
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
 import { currentOrganizationId } from "@crm/db/tenant-context";
-import { isOnboarded, markOnboarded, workspaceSlug } from "@crm/db/workspace";
+import { isOnboarded, markOnboarded } from "@crm/db/workspace";
+import { workspaceSlug } from "@crm/db/workspace-slug";
 import type { WorkspaceGate } from "@crm/validation/workspace-gate";
 import {
 	BadRequestException,

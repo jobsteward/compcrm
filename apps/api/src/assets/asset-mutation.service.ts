@@ -4,7 +4,6 @@ import { scopedTransaction } from "@crm/db/tenant-scope";
 import type { z } from "zod";
 import {
 	findAssetProject,
-	findAssetUpload,
 	findProjectAsset,
 	missing,
 } from "./asset-access.service";
@@ -32,9 +31,7 @@ export class AssetMutations {
 			project: Awaited<ReturnType<typeof findAssetProject>>,
 		) => Promise<T>,
 		target?: {
-			uploadId?: string;
 			assetId?: string;
-			activityId?: string | null;
 			appointmentId?: string;
 			emailMessageId?: string;
 		},
@@ -52,8 +49,6 @@ export class AssetMutations {
 			async (tx) => {
 				await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${actorKey}, 0))`;
 				const project = await findAssetProject(tx, actor, projectId, true);
-				if (target?.uploadId)
-					await findAssetUpload(tx, projectId, target.uploadId, actor);
 				if (target?.assetId)
 					await findProjectAsset(tx, projectId, target.assetId, actor);
 				if (
@@ -65,14 +60,6 @@ export class AssetMutations {
 							type: "MEETING",
 							appointmentDetails: { isNot: null },
 						},
-						select: { id: true },
-					}))
-				)
-					missing();
-				if (
-					target?.activityId &&
-					!(await tx.activity.findUnique({
-						where: { id: target.activityId },
 						select: { id: true },
 					}))
 				)

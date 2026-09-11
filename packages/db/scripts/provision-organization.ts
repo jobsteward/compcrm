@@ -1,7 +1,7 @@
 import { db } from "../src/client";
 import type { Prisma } from "../src/generated/prisma/client";
 import { lockIdempotencyKey } from "../src/idempotency";
-import { workspaceSlug } from "../src/workspace";
+import { workspaceSlug } from "../src/workspace-slug";
 
 function readArg(flag: string): string | undefined {
 	const index = process.argv.indexOf(flag);

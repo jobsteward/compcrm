@@ -22,7 +22,6 @@ const LABELS = {
 	READY: "Ready",
 	FAILED: "Failed",
 	CANCELED: "Canceled",
-	EXPIRED: "Expired",
 } as const;
 
 export function TransferList({
@@ -43,10 +42,10 @@ export function TransferList({
 						? "uploading"
 						: item.status === "FINALIZING"
 							? "processing"
-							: item.status === "FAILED" || item.status === "EXPIRED"
+							: item.status === "FAILED"
 								? "error"
 								: "done";
-				const canRetry = ["FAILED", "EXPIRED"].includes(item.status);
+				const canRetry = item.status === "FAILED";
 				const canCancel = [
 					"QUEUED",
 					"UPLOADING",

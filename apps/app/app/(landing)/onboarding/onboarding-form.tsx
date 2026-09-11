@@ -1,6 +1,6 @@
 "use client";
 
-import { workspaceSlug } from "@crm/db/workspace";
+import { workspaceSlug } from "@crm/db/workspace-slug";
 import { Button } from "@crm/ui/components/button";
 import {
 	Field,

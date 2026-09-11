@@ -7,139 +7,135 @@ import { AssetsHttpFixture } from "./assets-http.fixture";
 import { inAssetTenant } from "./assets-tenant.fixture";
 
 let fixture: AssetsHttpFixture;
-let app: AssetsHttpFixture["app"];
-let userId: AssetsHttpFixture["userId"];
-let projectId: AssetsHttpFixture["projectId"];
-let otherProjectId: AssetsHttpFixture["otherProjectId"];
-let customerId: AssetsHttpFixture["customerId"];
-let base: AssetsHttpFixture["base"];
-let metadata: AssetsHttpFixture["metadata"];
-let objects: AssetsHttpFixture["objects"];
 
 describe("Asset HTTP upload lifecycle", () => {
 	beforeAll(async () => {
 		fixture = new AssetsHttpFixture();
 		await fixture.setup();
-		app = fixture.app;
-		userId = fixture.userId;
-		projectId = fixture.projectId;
-		otherProjectId = fixture.otherProjectId;
-		customerId = fixture.customerId;
-		base = fixture.base;
-		metadata = fixture.metadata;
-		objects = fixture.objects;
 	});
 
 	afterAll(async () => {
 		await fixture.cleanup();
 	});
 
-	it("completes the upload, renewal, confirmation, listing, download, and deletion flow", async () => {
+	it("creates, completes, lists, downloads, and deletes an asset", async () => {
 		const key = randomUUID();
 		const create = () =>
-			request(app.getHttpServer())
-				.post(`${base}/asset-uploads`)
-				.set("x-asset-test-user", userId)
+			request(fixture.app.getHttpServer())
+				.post(`${fixture.base}/assets`)
+				.set("x-asset-test-user", fixture.userId)
 				.set("Idempotency-Key", key)
-				.send(metadata);
+				.send(fixture.metadata);
 		const first = await create().expect(200);
+		expect(first.body.asset).toMatchObject({
+			projectId: fixture.projectId,
+			customerId: fixture.customerId,
+			status: "UNVERIFIED",
+			sizeBytes: fixture.metadata.sizeBytes,
+			source: "MANUAL",
+			uploadedById: fixture.userId,
+		});
+		expect(first.body.download).toBeNull();
+		expect(first.body.failure).toBeNull();
+		expect(first.body.transfer).toMatchObject({
+			method: "PUT",
+			headers: {
+				"Content-Type": "application/octet-stream",
+				"Content-Length": "4",
+			},
+			maxBytes: 5363466240,
+		});
+		expect(first.body).not.toHaveProperty("upload");
+		expect(first.body).not.toHaveProperty("uploadId");
+
+		const assetId = first.body.asset.id as string;
 		const replay = await create().expect(200);
-		expect(replay.body).toEqual(first.body);
-		const uploadId = first.body.upload.id;
-		expect(first.body.transfer.headers).toEqual({
-			"Content-Type": "application/octet-stream",
-			"Content-Length": "0",
-		});
-		await request(app.getHttpServer())
-			.get(`/projects/${otherProjectId}/asset-uploads/${uploadId}`)
-			.set("x-asset-test-user", userId)
-			.expect(404);
-		await request(app.getHttpServer())
-			.post(`${base}/asset-uploads/${uploadId}/url`)
-			.set("x-asset-test-user", userId)
-			.set("Idempotency-Key", randomUUID())
-			.send({})
-			.expect(200);
-		const stored = await inAssetTenant(() =>
-			scopedDb.assetUpload.findUniqueOrThrow({
-				where: { id: uploadId },
-			}),
-		);
-		objects.set(stored.temporaryKey, {
-			sizeBytes: 0,
-			etag: '"empty"',
-			contentType: "application/octet-stream",
-		});
-		const confirmed = await request(app.getHttpServer())
-			.post(`${base}/asset-uploads/${uploadId}/confirm`)
-			.set("x-asset-test-user", userId)
-			.set("Idempotency-Key", randomUUID())
-			.send({})
-			.expect(200);
-		expect(confirmed.body.statusUrl).toBe(
-			`/projects/${projectId}/asset-uploads/${uploadId}`,
-		);
-		const processed = await app.get(AssetWorkerService).process();
-		expect(processed.processed).toBeGreaterThan(0);
+		expect(replay.body.asset.id).toBe(assetId);
+		expect(replay.body.transfer).not.toBeNull();
+		expect(replay.body.transfer.url).not.toBe(first.body.transfer.url);
 		expect(
 			await inAssetTenant(() =>
-				scopedDb.assetStorageJob.findFirst({
-					where: { uploadId, operation: "FINALIZE_UPLOAD" },
-					select: { state: true, attempts: true, lastError: true },
-				}),
+				scopedDb.assetUpload.count({ where: { assetId } }),
 			),
-		).toMatchObject({ state: "COMPLETE", lastError: null });
-		const state = await request(app.getHttpServer())
-			.get(confirmed.body.statusUrl)
-			.set("x-asset-test-user", userId)
+		).toBe(1);
+
+		await fixture.put(assetId);
+		const pending = await request(fixture.app.getHttpServer())
+			.get(`/assets/${assetId}`)
+			.set("x-asset-test-user", fixture.userId)
 			.expect(200);
-		expect(state.body.upload.status).toBe("READY");
-		const assetId = state.body.upload.assetId;
-		const detail = await request(app.getHttpServer())
-			.get(`${base}/assets/${assetId}`)
-			.set("x-asset-test-user", userId)
+		expect(pending.body.asset.status).toBe("UNVERIFIED");
+		expect(pending.body.download).toBeNull();
+		expect(pending.body).not.toHaveProperty("transfer");
+
+		const accepted = await request(fixture.app.getHttpServer())
+			.patch(`/assets/${assetId}`)
+			.set("x-asset-test-user", fixture.userId)
+			.set("Idempotency-Key", randomUUID())
+			.send({ uploadCompleted: true })
 			.expect(200);
-		expect(detail.body.asset).toMatchObject({
-			id: assetId,
-			projectId,
-			customerId,
-			sizeBytes: 0,
-			source: "MANUAL",
-			uploadedById: userId,
+		expect(accepted.body.asset.status).toBe("UNVERIFIED");
+		const upload = await fixture.uploadFor(assetId);
+		expect(
+			await inAssetTenant(() =>
+				scopedDb.assetStorageJob.count({ where: { uploadId: upload.id } }),
+			),
+		).toBe(1);
+
+		const processed = await fixture.app.get(AssetWorkerService).process();
+		expect(processed.processed).toBeGreaterThan(0);
+		const ready = await request(fixture.app.getHttpServer())
+			.get(`/assets/${assetId}`)
+			.set("x-asset-test-user", fixture.userId)
+			.set("x-asset-test-scope", "crm.read")
+			.expect(200);
+		expect(ready.body.asset.status).toBe("READY");
+		expect(ready.body.download).toMatchObject({
+			url: expect.stringContaining(upload.finalKey),
+			expiresAt: expect.any(String),
 		});
-		expect(detail.body.asset).not.toHaveProperty("storageKey");
-		for (const path of [
-			`${base}/assets`,
-			`/customers/${customerId}/assets?projectId=${projectId}`,
-		]) {
-			const listed = await request(app.getHttpServer())
-				.get(path)
-				.set("x-asset-test-user", userId)
-				.expect(200);
-			expect(
-				listed.body.items.map((item: { id: string }) => item.id),
-			).toContain(assetId);
-		}
-		await request(app.getHttpServer())
-			.get(`${base}/assets/${assetId}/download`)
-			.set("x-asset-test-user", userId)
+		expect(ready.body).not.toHaveProperty("transfer");
+
+		const listed = await request(fixture.app.getHttpServer())
+			.get(`${fixture.base}/assets`)
+			.set("x-asset-test-user", fixture.userId)
+			.set("x-asset-test-scope", "crm.read")
 			.expect(200);
-		await request(app.getHttpServer())
-			.delete(`${base}/assets/${assetId}`)
-			.set("x-asset-test-user", userId)
+		expect(listed.body.items.map((item: { id: string }) => item.id)).toContain(
+			assetId,
+		);
+		const otherProject = await request(fixture.app.getHttpServer())
+			.get(`/projects/${fixture.otherProjectId}/assets`)
+			.set("x-asset-test-user", fixture.userId)
+			.set("x-asset-test-scope", "crm.read")
+			.expect(200);
+		expect(
+			otherProject.body.items.map((item: { id: string }) => item.id),
+		).not.toContain(assetId);
+
+		const deleting = await request(fixture.app.getHttpServer())
+			.delete(`/assets/${assetId}`)
+			.set("x-asset-test-user", fixture.userId)
 			.set("Idempotency-Key", randomUUID())
 			.expect(200);
-		await request(app.getHttpServer())
-			.get(`${base}/assets/${assetId}/download`)
-			.set("x-asset-test-user", userId)
-			.expect(409);
-		await app.get(AssetWorkerService).process();
-		const deleted = await request(app.getHttpServer())
-			.get(`${base}/assets/${assetId}`)
-			.set("x-asset-test-user", userId)
+		expect(deleting.body).toEqual({ assetId, status: "DELETING" });
+		await request(fixture.app.getHttpServer())
+			.get(`/assets/${assetId}`)
+			.set("x-asset-test-user", fixture.userId)
+			.expect(200)
+			.then((response) => {
+				expect(response.body.asset.status).toBe("DELETING");
+			});
+		await fixture.app.get(AssetWorkerService).process();
+		const deleted = await request(fixture.app.getHttpServer())
+			.get(`/assets/${assetId}`)
+			.set("x-asset-test-user", fixture.userId)
 			.expect(200);
-		expect(deleted.body.asset.status).toBe("DELETED");
-		expect(deleted.body.asset.deletedAt).not.toBeNull();
-		expect(objects.has(stored.finalKey)).toBe(false);
+		expect(deleted.body.asset).toMatchObject({
+			status: "DELETED",
+			deletedAt: expect.any(String),
+		});
+		expect(deleted.body.download).toBeNull();
+		expect(fixture.objects.has(upload.finalKey)).toBe(false);
 	});
 });

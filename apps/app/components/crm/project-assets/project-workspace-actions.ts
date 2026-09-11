@@ -95,7 +95,6 @@ export function useProjectWorkspaceActions({
 	const deleteAsset = useMutation<unknown, Error, Asset>({
 		mutationFn: (asset) =>
 			projectApi.deleteAsset(
-				projectId,
 				asset.id,
 				actionKeys.current.for(actionFingerprint({ type: "delete", asset })),
 			),

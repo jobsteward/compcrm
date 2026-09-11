@@ -54,7 +54,15 @@ export async function finalizeAssetStorageJob(
 			await completeAssetStorageJob(tx, job);
 			return null;
 		}
-		if (!upload || !project || upload.status !== "FINALIZING") {
+		const asset = upload?.assetId
+			? await tx.artifact.findUnique({ where: { id: upload.assetId } })
+			: null;
+		if (
+			!upload ||
+			!project ||
+			upload.status !== "FINALIZING" ||
+			asset?.status !== "UNVERIFIED"
+		) {
 			await abandonAssetStorageJob(tx, job);
 			return null;
 		}
@@ -123,25 +131,16 @@ export async function finalizeAssetStorageJob(
 			await abandonAssetStorageJob(tx, job);
 			return;
 		}
-		const asset = await tx.artifact.create({
-			data: {
-				dealId: upload.projectId,
-				type: upload.kind,
-				fileName: upload.fileName,
-				storageBucket: upload.bucket,
-				storageKey: upload.finalKey,
-				kind: upload.kind,
-				contentType: upload.contentType,
-				sizeBytes: upload.sizeBytes,
-				source: upload.source,
-				activityId: upload.activityId,
-				uploadedById: upload.uploadedById,
-				durationMilliseconds: upload.durationMilliseconds,
-				capturedAt: upload.capturedAt,
-				emailMessageId: upload.emailMessageId,
-				emailAttachmentId: upload.emailAttachmentId,
-				status: "READY",
-			},
+		const asset = current.assetId
+			? await tx.artifact.findUnique({ where: { id: current.assetId } })
+			: null;
+		if (asset?.status !== "UNVERIFIED" || asset.dealId !== upload.projectId) {
+			await abandonAssetStorageJob(tx, job);
+			return;
+		}
+		await tx.artifact.update({
+			where: { id: asset.id },
+			data: { status: "READY" },
 		});
 		await tx.assetUpload.update({
 			where: { id: upload.id },

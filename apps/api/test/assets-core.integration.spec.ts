@@ -77,7 +77,7 @@ describe("asset state and storage transactions", () => {
 			contentType: "arbitrary/x-format",
 			durationMilliseconds: 7_200_000,
 		});
-		const detail = await service.getAsset(actor, projectId, assetId);
+		const detail = await service.getAsset(actor, assetId);
 		expect(detail.asset).toMatchObject({
 			sizeBytes: 0,
 			contentType: "arbitrary/x-format",
@@ -86,9 +86,10 @@ describe("asset state and storage transactions", () => {
 			source: "MANUAL",
 		});
 		expect(detail.asset).not.toHaveProperty("storageKey");
-		expect(
-			(await service.downloadAsset(actor, projectId, assetId)).method,
-		).toBe("GET");
+		expect(detail.download).toMatchObject({
+			url: expect.any(String),
+			expiresAt: expect.any(String),
+		});
 	});
 	it("enforces the exact upload-size boundary", async () => {
 		expect(
@@ -105,12 +106,7 @@ describe("asset state and storage transactions", () => {
 			Array.from({ length: ASSETS.reservationLimit }, () => create()),
 		);
 		for (const upload of uploads)
-			await service.cancelUpload(
-				actor,
-				projectId,
-				upload.upload.id,
-				randomUUID(),
-			);
+			await service.deleteAsset(actor, upload.asset.id, randomUUID());
 		await worker.process();
 		await expect(create()).rejects.toMatchObject({
 			code: "UPLOAD_CAPACITY_EXCEEDED",
@@ -126,7 +122,9 @@ describe("asset state and storage transactions", () => {
 		await due();
 		await worker.process();
 		expect(storage.objects.has(first.temporaryKey)).toBe(false);
-		expect((await create()).upload.status).toBe("PENDING");
+		const replacement = await create();
+		expect(replacement.asset.status).toBe("UNVERIFIED");
+		expect(replacement.upload.status).toBe("PENDING");
 	});
 	it("keeps the final object unchanged after an old PUT grant is reused", async () => {
 		const result = await ready();
@@ -134,7 +132,12 @@ describe("asset state and storage transactions", () => {
 			where: { id: result.uploadId },
 		});
 		storage.put(upload.temporaryKey, 88, '"replacement"');
-		await service.confirmUpload(actor, projectId, upload.id, randomUUID());
+		await service.updateAsset(
+			actor,
+			result.assetId,
+			{ uploadCompleted: true },
+			randomUUID(),
+		);
 		await worker.process();
 		expect(storage.objects.get(upload.finalKey)?.sizeBytes).toBe(4);
 		expect(storage.copyCount).toBe(1);
@@ -144,23 +147,28 @@ describe("asset state and storage transactions", () => {
 		const created = await create();
 		await put(created.upload.id);
 		storage.copyTimeout = true;
-		await service.confirmUpload(
+		await service.updateAsset(
 			actor,
-			projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			randomUUID(),
 		);
 		await worker.process();
+		const retrying = await service.getAsset(actor, created.asset.id);
+		expect(retrying.asset.status).toBe("UNVERIFIED");
+		expect(retrying.failure).toBeNull();
 		expect(
-			(await service.getUpload(actor, projectId, created.upload.id)).upload
-				.status,
+			(
+				await db.assetUpload.findUniqueOrThrow({
+					where: { id: created.upload.id },
+				})
+			).status,
 		).toBe("FINALIZING");
 		await due();
 		await worker.process();
-		expect(
-			(await service.getUpload(actor, projectId, created.upload.id)).upload
-				.status,
-		).toBe("READY");
+		expect((await service.getAsset(actor, created.asset.id)).asset.status).toBe(
+			"READY",
+		);
 		expect(storage.copyCount).toBe(1);
 	});
 });

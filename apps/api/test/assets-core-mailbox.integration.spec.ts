@@ -59,39 +59,26 @@ describe("asset mailbox actors", () => {
 			mailboxOwnerId: userId,
 			messageId: secondSource.messageId,
 		};
-		const created = await service.createUpload(
+		const created = await service.createProjectAsset(
 			secondActor,
 			projectId,
 			metadata({ source: "EMAIL_ATTACHMENT", emailSource: secondSource }),
 			randomUUID(),
 		);
 		await expect(
-			service.getUpload(firstActor, projectId, created.upload.id),
+			service.getAsset(firstActor, created.asset.id),
 		).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
 		await expect(
-			service.renewUpload(
+			service.updateAsset(
 				firstActor,
-				projectId,
-				created.upload.id,
-				randomUUID(),
-			),
-		).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
-		await expect(
-			service.confirmUpload(
-				firstActor,
-				projectId,
-				created.upload.id,
+				created.asset.id,
+				{ uploadCompleted: true },
 				randomUUID(),
 			),
 		).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
 		await db.emailMessage.delete({ where: { id: secondSource.messageId } });
 		await expect(
-			service.renewUpload(
-				secondActor,
-				projectId,
-				created.upload.id,
-				randomUUID(),
-			),
+			service.getAsset(secondActor, created.asset.id),
 		).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
 	});
 	it("rejects a system creation replay from a different message actor", async () => {
@@ -113,18 +100,23 @@ describe("asset mailbox actors", () => {
 			source: "EMAIL_ATTACHMENT",
 			emailSource: secondSource,
 		});
-		const created = await service.createUpload(
+		const created = await service.createProjectAsset(
 			secondActor,
 			projectId,
 			input,
 			key,
 		);
 		await expect(
-			service.createUpload(firstActor, projectId, input, key),
+			service.createProjectAsset(firstActor, projectId, input, key),
 		).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
-		expect(
-			await service.createUpload(secondActor, projectId, input, key),
-		).toEqual(created);
+		const replay = await service.createProjectAsset(
+			secondActor,
+			projectId,
+			input,
+			key,
+		);
+		expect(replay.asset.id).toBe(created.asset.id);
+		expect(replay.transfer).not.toBeNull();
 		expect(await db.assetUpload.count({ where: { projectId } })).toBe(1);
 	});
 	it("rejects a revoked source mailbox even when another provider remains connected", async () => {
@@ -142,15 +134,25 @@ describe("asset mailbox actors", () => {
 		};
 		const key = randomUUID();
 		const input = metadata({ source: "EMAIL_ATTACHMENT", emailSource });
-		const created = await service.createUpload(system, projectId, input, key);
+		const created = await service.createProjectAsset(
+			system,
+			projectId,
+			input,
+			key,
+		);
 		await db.mailboxSync.deleteMany({
 			where: { userId, source: "gmail" },
 		});
 		await expect(
-			service.createUpload(system, projectId, input, key),
+			service.createProjectAsset(system, projectId, input, key),
 		).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
 		await expect(
-			service.renewUpload(system, projectId, created.upload.id, randomUUID()),
+			service.updateAsset(
+				system,
+				created.asset.id,
+				{ uploadCompleted: true },
+				randomUUID(),
+			),
 		).rejects.toMatchObject({ code: "RESOURCE_NOT_FOUND" });
 		expect(
 			await db.mailboxSync.count({ where: { userId, source: "outlook" } }),

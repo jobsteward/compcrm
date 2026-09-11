@@ -16,11 +16,12 @@ import {
 
 let fixture: AssetsCoreFixture;
 let service: AssetsCoreFixture["service"];
+let worker: AssetsCoreFixture["worker"];
 let actor: AssetsCoreFixture["actor"];
 let userId: string;
 let projectId: string;
 let create: AssetsCoreFixture["create"];
-let ready: AssetsCoreFixture["ready"];
+let put: AssetsCoreFixture["put"];
 
 describe("asset metadata state", () => {
 	beforeAll(async () => {
@@ -31,11 +32,12 @@ describe("asset metadata state", () => {
 		fixture = new AssetsCoreFixture();
 		await fixture.setup();
 		service = fixture.service;
+		worker = fixture.worker;
 		actor = fixture.actor;
 		userId = fixture.userId;
 		projectId = fixture.projectId;
 		create = fixture.create.bind(fixture);
-		ready = fixture.ready.bind(fixture);
+		put = fixture.put.bind(fixture);
 	});
 
 	afterEach(async () => {
@@ -83,7 +85,6 @@ describe("asset metadata state", () => {
 		});
 		const updated = await service.updateAsset(
 			actor,
-			projectId,
 			unverified.id,
 			{ expectedVersion: 1, kind: "document" },
 			randomUUID(),
@@ -100,7 +101,6 @@ describe("asset metadata state", () => {
 		await expect(
 			service.updateAsset(
 				actor,
-				projectId,
 				unverified.id,
 				{ expectedVersion: 2, fileName: "blocked.bin" },
 				randomUUID(),
@@ -111,85 +111,70 @@ describe("asset metadata state", () => {
 	it("rejects archived managed meetings but accepts generic meetings", async () => {
 		const archivedAppointment = await meeting(true, true);
 		await expect(
-			create({ activityId: archivedAppointment.id }),
+			create({ appointmentId: archivedAppointment.id }),
 		).rejects.toMatchObject({
 			code: "APPOINTMENT_ARCHIVED",
 		});
 		const generic = await meeting(false, true);
-		expect((await create({ activityId: generic.id })).upload.status).toBe(
-			"PENDING",
-		);
-		const { assetId } = await ready();
-		await expect(
-			service.updateAsset(
-				actor,
-				projectId,
-				assetId,
-				{ expectedVersion: 1, activityId: archivedAppointment.id },
-				randomUUID(),
-			),
-		).rejects.toMatchObject({ code: "APPOINTMENT_ARCHIVED" });
+		await expect(create({ appointmentId: generic.id })).rejects.toMatchObject({
+			code: "RESOURCE_NOT_FOUND",
+		});
+		const active = await meeting(true);
+		const created = await create({ appointmentId: active.id });
+		expect(created.asset).toMatchObject({
+			appointmentId: active.id,
+			status: "UNVERIFIED",
+		});
 	});
 
-	it("keeps accepted uploads renewable and confirmable after archive", async () => {
+	it("finishes an accepted upload after appointment archive", async () => {
 		const appointment = await meeting(true);
-		const created = await create({ activityId: appointment.id });
+		const created = await create({ appointmentId: appointment.id });
+		await put(created.upload.id);
 		await db.activity.update({
 			where: { id: appointment.id },
 			data: { archivedAt: new Date() },
 		});
+		await service.updateAsset(
+			actor,
+			created.asset.id,
+			{ uploadCompleted: true },
+			randomUUID(),
+		);
+		await worker.process();
 		expect(
-			(
-				await service.renewUpload(
-					actor,
-					projectId,
-					created.upload.id,
-					randomUUID(),
-				)
-			).upload.id,
-		).toBe(created.upload.id);
-		expect(
-			(
-				await service.confirmUpload(
-					actor,
-					projectId,
-					created.upload.id,
-					randomUUID(),
-				)
-			).uploadId,
-		).toBe(created.upload.id);
+			(await service.getAsset(actor, created.asset.id)).asset,
+		).toMatchObject({
+			appointmentId: appointment.id,
+			status: "READY",
+			version: 1,
+		});
 	});
 
-	it("normalizes a cached legacy confirmation URL", async () => {
+	it("replays completion without creating duplicate worker jobs", async () => {
 		const created = await create();
+		await put(created.upload.id);
 		const key = randomUUID();
-		const first = await service.confirmUpload(
+		const first = await service.updateAsset(
 			actor,
-			projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			key,
 		);
-		const saved = await db.assetApiRequest.findFirstOrThrow({
-			where: { operation: "CONFIRM_UPLOAD", idempotencyKey: key },
-		});
-		await db.assetApiRequest.update({
-			where: { id: saved.id },
-			data: {
-				responseBody: {
-					uploadId: first.uploadId,
-					statusUrl: `/rest/v1/projects/${projectId}/asset-uploads/${created.upload.id}`,
+		const replay = await service.updateAsset(
+			actor,
+			created.asset.id,
+			{ uploadCompleted: true },
+			key,
+		);
+		expect(replay).toEqual(first);
+		expect(
+			await db.assetStorageJob.count({
+				where: {
+					uploadId: created.upload.id,
+					operation: "FINALIZE_UPLOAD",
 				},
-			},
-		});
-		const replay = await service.confirmUpload(
-			actor,
-			projectId,
-			created.upload.id,
-			key,
-		);
-		expect(replay).toEqual({
-			uploadId: first.uploadId,
-			statusUrl: `/projects/${projectId}/asset-uploads/${created.upload.id}`,
-		});
+			}),
+		).toBe(1);
 	});
 });

@@ -30,35 +30,19 @@ export function assetRestMeta(method: RestMethod, path: `/${string}`) {
 }
 
 export const assetRoutes = {
-	createUpload: assetRestMeta("POST", "/projects/{projectId}/asset-uploads"),
-	getUpload: assetRestMeta(
-		"GET",
-		"/projects/{projectId}/asset-uploads/{uploadId}",
-	),
-	renewUpload: assetRestMeta(
+	createProjectAsset: assetRestMeta("POST", "/projects/{projectId}/assets"),
+	createAppointmentAsset: assetRestMeta(
 		"POST",
-		"/projects/{projectId}/asset-uploads/{uploadId}/url",
+		"/appointments/{appointmentId}/assets",
 	),
-	confirmUpload: assetRestMeta(
-		"POST",
-		"/projects/{projectId}/asset-uploads/{uploadId}/confirm",
-	),
-	cancelUpload: assetRestMeta(
-		"DELETE",
-		"/projects/{projectId}/asset-uploads/{uploadId}",
-	),
-	listCustomerAssets: assetRestMeta("GET", "/customers/{customerId}/assets"),
 	listProjectAssets: assetRestMeta("GET", "/projects/{projectId}/assets"),
-	getAsset: assetRestMeta("GET", "/projects/{projectId}/assets/{assetId}"),
-	updateAsset: assetRestMeta("PATCH", "/projects/{projectId}/assets/{assetId}"),
-	downloadAsset: assetRestMeta(
+	listAppointmentAssets: assetRestMeta(
 		"GET",
-		"/projects/{projectId}/assets/{assetId}/download",
+		"/appointments/{appointmentId}/assets",
 	),
-	deleteAsset: assetRestMeta(
-		"DELETE",
-		"/projects/{projectId}/assets/{assetId}",
-	),
+	getAsset: assetRestMeta("GET", "/assets/{assetId}"),
+	updateAsset: assetRestMeta("PATCH", "/assets/{assetId}"),
+	deleteAsset: assetRestMeta("DELETE", "/assets/{assetId}"),
 };
 
 export function describeAssetErrors(document: OpenAPIObject): void {

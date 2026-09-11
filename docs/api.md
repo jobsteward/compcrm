@@ -164,10 +164,10 @@ The root well-known routes expose authorization-server and protected-resource me
 
 ## The OpenAPI document is built at runtime, not committed
 
-Customer and project files use the [asset API contract](./asset-api-contract.md).
-`assets.*` supplies eleven REST operations under `/projects` and `/customers`.
+Project and appointment files use the [asset API contract](./asset-api-contract.md).
+`assets.*` supplies seven REST operations under `/projects`, `/appointments`, and `/assets`.
 `appointments.*` supplies five managed appointment operations under `/projects`.
-All 175 tRPC REST operations use root resource paths.
+All 171 tRPC REST operations use root resource paths.
 See the [appointment contract](./appointment-api-contract.md) for lifecycle, tenant checks, and file retention.
 The routes use the existing principal and OAuth scopes.
 Asset and appointment routes return a structured error envelope and disable response caching.
@@ -181,7 +181,7 @@ See [asset storage operations](./assets-storage-operations.md) before enabling R
 
 `GET /openapi.json` serves one document: Nest controllers and the tRPC REST bridge.
 All tRPC REST metadata uses root resource paths.
-The merged OpenAPI document contains 160 paths, including native controller paths and 175 tRPC REST operations.
+The merged OpenAPI document contains 156 paths, including native controller paths and 171 tRPC REST operations.
 The OpenAPI document lists canonical tRPC paths only. It exposes no tRPC REST compatibility aliases.
 Swagger UI renders it at `/`.
 `createApp` builds both halves and merges them, so nothing is generated at build

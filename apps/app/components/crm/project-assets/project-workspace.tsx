@@ -58,8 +58,8 @@ export function ProjectWorkspace({
 	}>({ open: false, appointment: null });
 	const [upload, setUpload] = useState<{
 		open: boolean;
-		activityId: string | null;
-	}>({ open: false, activityId: null });
+		appointmentId: string | null;
+	}>({ open: false, appointmentId: null });
 	const [assetEditorId, setAssetEditorId] = useState<string | null>(null);
 	const [confirm, setConfirm] = useState<ConfirmTarget | null>(null);
 	const invalidate = () =>
@@ -72,7 +72,7 @@ export function ProjectWorkspace({
 	});
 	const download = async (asset: Asset) => {
 		try {
-			await downloadProjectAsset(projectId, asset);
+			await downloadProjectAsset(asset);
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "The operation failed.",
@@ -92,7 +92,7 @@ export function ProjectWorkspace({
 							setAppointmentForm({ open: true, appointment })
 						}
 						onUpload={(appointment) =>
-							setUpload({ open: true, activityId: appointment.id })
+							setUpload({ open: true, appointmentId: appointment.id })
 						}
 						onArchive={(appointment) =>
 							setConfirm({ type: "archive", appointment })
@@ -124,7 +124,7 @@ export function ProjectWorkspace({
 					error={assets.error?.message}
 					appointments={appointmentsItems}
 					onUpload={() =>
-						setUpload({ open: true, activityId: selectedAppointmentId })
+						setUpload({ open: true, appointmentId: selectedAppointmentId })
 					}
 					onDownload={download}
 					onEdit={(asset) => setAssetEditorId(asset.id)}

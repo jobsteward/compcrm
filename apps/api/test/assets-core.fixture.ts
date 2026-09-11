@@ -4,8 +4,8 @@ import { db as rawDb } from "@crm/db";
 import { scopedDb as db } from "@crm/db/tenant-scope";
 import { AssetWorkerService } from "../src/assets/asset-worker.service";
 import {
-	type CreateUploadInput,
-	createUploadInput,
+	type CreateAssetInput,
+	createAssetInput,
 } from "../src/assets/assets.contracts";
 import { type AssetActor, AssetsService } from "../src/assets/assets.service";
 import { MemoryStorage } from "./assets-core.storage.fixture";
@@ -86,8 +86,8 @@ export class AssetsCoreFixture {
 		await rawDb.user.delete({ where: { id: this.userId } });
 	}
 
-	metadata(input: Partial<CreateUploadInput> = {}) {
-		return createUploadInput.parse({
+	metadata(input: Partial<CreateAssetInput> = {}) {
+		return createAssetInput.parse({
 			fileName: "file.custom",
 			sizeBytes: 4,
 			source: "MANUAL",
@@ -95,13 +95,28 @@ export class AssetsCoreFixture {
 		});
 	}
 
-	async create(input: Partial<CreateUploadInput> = {}, key = randomUUID()) {
-		return this.service.createUpload(
-			this.actor,
-			this.projectId,
-			this.metadata(input),
-			key,
-		);
+	async create(
+		input: Partial<CreateAssetInput> & { appointmentId?: string } = {},
+		key = randomUUID(),
+	) {
+		const { appointmentId, ...metadata } = input;
+		const result = appointmentId
+			? await this.service.createAppointmentAsset(
+					this.actor,
+					appointmentId,
+					this.metadata(metadata),
+					key,
+				)
+			: await this.service.createProjectAsset(
+					this.actor,
+					this.projectId,
+					this.metadata(metadata),
+					key,
+				);
+		const upload = await db.assetUpload.findUniqueOrThrow({
+			where: { assetId: result.asset.id },
+		});
+		return { ...result, upload };
 	}
 
 	async put(uploadId: string, size = 4) {
@@ -112,26 +127,22 @@ export class AssetsCoreFixture {
 		return upload;
 	}
 
-	async ready(input: Partial<CreateUploadInput> = {}) {
+	async ready(
+		input: Partial<CreateAssetInput> & { appointmentId?: string } = {},
+	) {
 		const created = await this.create(input);
 		await this.put(created.upload.id, input.sizeBytes ?? 4);
-		await this.service.confirmUpload(
+		await this.service.updateAsset(
 			this.actor,
-			this.projectId,
-			created.upload.id,
+			created.asset.id,
+			{ uploadCompleted: true },
 			randomUUID(),
 		);
 		await this.worker.process();
-		const state = await this.service.getUpload(
-			this.actor,
-			this.projectId,
-			created.upload.id,
-		);
-		expect(state.upload.status).toBe("READY");
-		return {
-			uploadId: created.upload.id,
-			assetId: state.upload.assetId as string,
-		};
+		const state = await this.service.getAsset(this.actor, created.asset.id);
+		expect(state.asset.status).toBe("READY");
+		expect(state.asset.version).toBe(1);
+		return { uploadId: created.upload.id, assetId: state.asset.id };
 	}
 
 	async email(attachmentId = "gmail-part:1") {

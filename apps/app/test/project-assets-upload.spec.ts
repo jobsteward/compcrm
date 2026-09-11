@@ -1,84 +1,64 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
+import { projectApi } from "../lib/project-assets/client";
 import { uploadFixture } from "./project-assets-upload.fixture";
 
-describe("project upload recovery", () => {
-	test("cancels an accepted upload before transfer when creation was pending", async () => {
+describe("project asset upload recovery", () => {
+	test("replays lost creation with the same key before transfer", async () => {
 		const f = uploadFixture();
-		const pending = Promise.withResolvers<typeof f.grant>();
-		f.api.createUpload.mockImplementationOnce(() => pending.promise);
-		const run = f.runner.run();
-		await f.runner.cancel();
-		pending.resolve(f.grant);
-		await run;
-		expect(f.api.cancelUpload).toHaveBeenCalledTimes(1);
-		expect(f.api.putTransfer).not.toHaveBeenCalled();
-		expect(f.api.confirmUpload).not.toHaveBeenCalled();
-		expect(f.changes.at(-1)?.status).toBe("CANCELED");
-	});
+		f.api.createProjectAsset.mockRejectedValueOnce(new Error("Response lost"));
 
-	test("replays unknown creation with the same key before canceling", async () => {
-		const f = uploadFixture();
-		const pending = Promise.withResolvers<typeof f.grant>();
-		f.api.createUpload.mockImplementationOnce(() => pending.promise);
-		const run = f.runner.run();
-		await f.runner.cancel();
-		pending.reject(new Error("Response lost"));
-		await run;
 		await f.runner.run();
-		expect(
-			f.api.createUpload.mock.calls.map((call) => Reflect.get(call, "2")),
-		).toEqual(["create", "create"]);
-		expect(f.api.putTransfer).not.toHaveBeenCalled();
-		expect(f.changes.at(-1)?.status).toBe("CANCELED");
-	});
+		expect(f.changes.at(-1)?.status).toBe("FAILED");
 
-	test("rotates renewal keys after a replay returns an expired grant", async () => {
-		const f = uploadFixture();
-		if (!f.grant.transfer) throw new Error("Fixture requires a transfer");
-		const expired = {
-			...f.grant,
-			transfer: { ...f.grant.transfer, expiresAt: "2000-01-01T00:00:00Z" },
-		};
-		f.api.createUpload.mockResolvedValueOnce(expired);
-		f.api.renewUpload.mockResolvedValueOnce(expired);
 		await f.runner.run();
-		const keys = f.api.renewUpload.mock.calls.map((call) =>
-			Reflect.get(call, "2"),
-		);
-		expect(keys).toHaveLength(2);
-		expect(keys[0]).toBe("renew");
-		expect(keys[1]).not.toBe(keys[0]);
-		expect(f.changes.at(-1)?.status).toBe("READY");
-	});
-
-	test("retries failed renewal with its original key and never creates a second upload", async () => {
-		const f = uploadFixture();
-		f.api.createUpload.mockResolvedValueOnce({ ...f.grant, transfer: null });
-		f.api.renewUpload.mockRejectedValueOnce(new Error("Response lost"));
-		await f.runner.run();
-		await f.runner.run();
-		expect(f.api.createUpload).toHaveBeenCalledTimes(1);
-		expect(
-			f.api.renewUpload.mock.calls.map((call) => Reflect.get(call, "2")),
-		).toEqual(["renew", "renew"]);
-		expect(f.changes.at(-1)?.status).toBe("READY");
-	});
-
-	test("reconciles a lost confirmation without another transfer", async () => {
-		const f = uploadFixture();
-		f.api.confirmUpload.mockRejectedValueOnce(new Error("Response lost"));
-		await f.runner.run();
-		f.api.getUpload.mockResolvedValueOnce({
-			upload: { ...f.grant.upload, status: "FINALIZING" },
-			pollAfterSeconds: 1,
-		});
-		await f.runner.run();
+		expect(f.api.createProjectAsset).toHaveBeenCalledTimes(2);
+		expect(f.api.createProjectAsset.mock.calls.map((call) => call[2])).toEqual([
+			"create",
+			"create",
+		]);
 		expect(f.api.putTransfer).toHaveBeenCalledTimes(1);
-		expect(f.api.confirmUpload).toHaveBeenCalledTimes(1);
-		expect(f.ready).toHaveBeenCalledTimes(1);
+		expect(f.api.updateAsset).toHaveBeenCalledTimes(1);
+		expect(f.onReady).toHaveBeenCalledTimes(1);
+		expect(f.changes.at(-1)?.status).toBe("READY");
 	});
 
-	test("does not confirm a transfer canceled while PUT was pending", async () => {
+	test("replays lost completion without another creation or transfer", async () => {
+		const f = uploadFixture();
+		f.api.updateAsset.mockRejectedValueOnce(new Error("Response lost"));
+
+		await f.runner.run();
+		expect(f.changes.at(-1)?.status).toBe("FAILED");
+		await f.runner.run();
+
+		expect(f.api.createProjectAsset).toHaveBeenCalledTimes(1);
+		expect(f.api.putTransfer).toHaveBeenCalledTimes(1);
+		expect(f.api.updateAsset).toHaveBeenCalledTimes(2);
+		expect(f.api.updateAsset.mock.calls.map((call) => call[2])).toEqual([
+			"complete",
+			"complete",
+		]);
+		expect(f.onReady).toHaveBeenCalledTimes(1);
+		expect(f.changes.at(-1)?.status).toBe("READY");
+	});
+
+	test("cancels an accepted asset before transfer when creation was pending", async () => {
+		const f = uploadFixture();
+		const pending = Promise.withResolvers<typeof f.creation>();
+		f.api.createProjectAsset.mockImplementationOnce(() => pending.promise);
+		const run = f.runner.run();
+		await Promise.resolve();
+		await f.runner.cancel();
+		pending.resolve(f.creation);
+		await run;
+
+		expect(f.api.deleteAsset).toHaveBeenCalledTimes(1);
+		expect(f.api.putTransfer).not.toHaveBeenCalled();
+		expect(f.api.updateAsset).not.toHaveBeenCalled();
+		expect(f.onReady).toHaveBeenCalledTimes(1);
+		expect(f.changes.at(-1)?.status).toBe("CANCELED");
+	});
+
+	test("cancels an asset when the direct transfer is aborted", async () => {
 		const f = uploadFixture();
 		const started = Promise.withResolvers<void>();
 		f.api.putTransfer.mockImplementationOnce(
@@ -96,8 +76,78 @@ describe("project upload recovery", () => {
 		await started.promise;
 		await f.runner.cancel();
 		await run;
-		expect(f.api.cancelUpload).toHaveBeenCalledTimes(1);
-		expect(f.api.confirmUpload).not.toHaveBeenCalled();
+
+		expect(f.api.deleteAsset).toHaveBeenCalledTimes(1);
+		expect(f.api.updateAsset).not.toHaveBeenCalled();
+		expect(f.onReady).toHaveBeenCalledTimes(1);
 		expect(f.changes.at(-1)?.status).toBe("CANCELED");
+	});
+
+	test("refreshes the transfer by replaying the original creation on retry", async () => {
+		const f = uploadFixture();
+		if (!f.creation.transfer) throw new Error("Fixture requires a transfer");
+		const refreshed = {
+			...f.creation,
+			transfer: {
+				...f.creation.transfer,
+				url: "https://storage.example/refreshed",
+			},
+		};
+		f.api.createProjectAsset
+			.mockResolvedValueOnce(f.creation)
+			.mockResolvedValueOnce(refreshed);
+		f.api.putTransfer.mockRejectedValueOnce(new Error("Transfer failed"));
+
+		await f.runner.run();
+		expect(f.changes.at(-1)?.status).toBe("FAILED");
+		await f.runner.run();
+
+		expect(f.api.createProjectAsset).toHaveBeenCalledTimes(2);
+		expect(f.api.createProjectAsset.mock.calls.map((call) => call[2])).toEqual([
+			"create",
+			"create",
+		]);
+		expect(f.api.putTransfer.mock.calls.map((call) => call[0].url)).toEqual([
+			"https://storage.example/file",
+			"https://storage.example/refreshed",
+		]);
+		expect(f.api.updateAsset).toHaveBeenCalledTimes(1);
+	});
+
+	test("uses the appointment collection path without a body association", async () => {
+		const f = uploadFixture("appointment");
+		await f.runner.run();
+
+		expect(f.api.createProjectAsset).not.toHaveBeenCalled();
+		expect(f.api.createAppointmentAsset).toHaveBeenCalledTimes(1);
+		expect(f.api.createAppointmentAsset.mock.calls[0]?.[1]).not.toHaveProperty(
+			"appointmentId",
+		);
+	});
+
+	test("sends the signed transfer without CRM credentials", async () => {
+		const f = uploadFixture();
+		if (!f.creation.transfer) throw new Error("Fixture requires a transfer");
+		const originalFetch = globalThis.fetch;
+		const fetchMock = mock(
+			async (_input: RequestInfo | URL, _init?: RequestInit) =>
+				new Response(null, { status: 200 }),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		try {
+			await projectApi.putTransfer(f.creation.transfer, f.item.file);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		const [url, init] = fetchMock.mock.calls[0] ?? [];
+		expect(url).toBe(f.creation.transfer.url);
+		expect(init).toMatchObject({
+			method: "PUT",
+			credentials: "omit",
+			headers: f.creation.transfer.headers,
+			body: f.item.file,
+		});
 	});
 });

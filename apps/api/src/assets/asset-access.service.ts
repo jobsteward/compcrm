@@ -70,25 +70,6 @@ export function requireActiveProject(project: { archivedAt: Date | null }) {
 		);
 }
 
-export async function findAssetUpload(
-	tx: Prisma.TransactionClient,
-	projectId: string,
-	uploadId: string,
-	actor: AssetActor,
-) {
-	const upload = await tx.assetUpload.findFirst({
-		where: { id: uploadId, projectId },
-	});
-	if (!upload) missing();
-	if (
-		actor.type === "SYSTEM" &&
-		(upload.emailMessageId !== actor.messageId ||
-			upload.mailboxOwnerId !== actor.mailboxOwnerId)
-	)
-		missing();
-	return upload;
-}
-
 export async function findProjectAsset(
 	tx: Prisma.TransactionClient,
 	projectId: string,
@@ -100,32 +81,40 @@ export async function findProjectAsset(
 		include: { deal: { select: { companyId: true } } },
 	});
 	if (!asset) missing();
+	if (asset.activityId)
+		await validateAssetAppointment(tx, projectId, asset.activityId, false);
 	if (actor.type === "SYSTEM" && asset.emailMessageId !== actor.messageId)
 		missing();
 	return asset;
 }
 
-export async function validateUploadActivity(
+export async function validateAssetAppointment(
 	tx: Prisma.TransactionClient,
 	projectId: string,
-	activityId?: string | null,
+	appointmentId: string,
+	active = true,
 ) {
-	if (!activityId) return;
-	const activity = await tx.activity.findUnique({
-		where: { id: activityId },
-		include: { appointmentDetails: { select: { activityId: true } } },
+	const appointment = await tx.activity.findUnique({
+		where: { id: appointmentId },
+		include: { appointmentDetails: true },
 	});
-	if (!activity) missing();
-	if (activity.type !== "MEETING" || activity.dealId !== projectId)
+	if (
+		!appointment?.appointmentDetails ||
+		appointment.type !== "MEETING" ||
+		appointment.organizationId !== appointment.appointmentDetails.organizationId
+	)
+		missing();
+	if (appointment.dealId !== projectId)
 		throw new AssetError(
 			409,
 			"PROJECT_MISMATCH",
-			"The meeting belongs to another project.",
+			"The appointment belongs to another project.",
 		);
-	if (activity.appointmentDetails && activity.archivedAt)
+	if (active && appointment.archivedAt)
 		throw new AssetError(
 			409,
 			"APPOINTMENT_ARCHIVED",
 			"Restore the appointment before linking files.",
 		);
+	return appointment;
 }

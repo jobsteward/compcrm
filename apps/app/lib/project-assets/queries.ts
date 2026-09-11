@@ -47,7 +47,7 @@ export function assetsQuery(projectId: string, filters: AssetFilters) {
 export function assetQuery(projectId: string, assetId: string | null) {
 	return queryOptions({
 		queryKey: projectKeys.asset(projectId, assetId ?? "none"),
-		queryFn: () => projectApi.getAsset(projectId, assetId ?? ""),
+		queryFn: () => projectApi.getAsset(assetId ?? ""),
 		enabled: Boolean(assetId),
 	});
 }

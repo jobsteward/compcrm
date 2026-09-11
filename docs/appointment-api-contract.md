@@ -1,14 +1,14 @@
 ---
 title: Project appointments
 status: implementation
-updated: 2026-09-10
+updated: 2026-09-11
 ---
 
 # Project appointments
 
-Appointments and files belong to the project independently.
-An asset's optional `activityId` records the appointment during which the file is collected.
-Files can arrive after appointment completion. Upload state and appointment state are independent.
+Appointments and assets belong to the project independently.
+An asset's optional `appointmentId` records the managed appointment selected by its path.
+Files can arrive after appointment completion. Transfer state and appointment state are independent.
 
 ## HTTP contract
 
@@ -110,9 +110,9 @@ Reject `archived: true` and restore combined with ordinary edits using `400 VALI
 Other edits to archived appointments return `409 APPOINTMENT_ARCHIVED`.
 Restore preserves status and file references.
 
-New uploads and new file references reject archived managed appointments.
-Previously accepted uploads can renew, confirm, and finish after appointment archive.
-Files remain available through the project asset routes, including the archived appointment filter.
+New assets through `/appointments/{appointmentId}/assets` reject archived managed appointments.
+Previously accepted transfers can complete after appointment archive while the project remains active.
+Files remain available through the project asset routes, including the archived appointment asset list.
 Archived projects allow appointment reads and archive, but reject create, edit, and restore with `409 PROJECT_ARCHIVED`.
 Permanent project purge uses existing file cleanup before related database rows disappear.
 Appointment archive does not start a new retention job.
@@ -130,15 +130,15 @@ Validate the project, activity, details, and owner within the authenticated orga
 The activity has no calendar-event or direct contact link.
 Calendar sync, cancellation, and disconnect do not own these appointments.
 Generic calendar meetings do not appear in appointment lists.
-Generic project MEETING references remain valid for the existing asset API.
+Generic project MEETING activities are not managed appointments and cannot be used as appointment asset parents.
 
-Reuse `AssetMutations` and its project transaction lock for appointments, upload creation, and asset relinking.
-This serializes archive and new links even for different actors.
+Reuse `AssetMutations` and its project transaction lock for appointments and asset creation.
+Asset parentage comes from the route. The asset PATCH operation cannot relink an asset.
 The existing `AssetApiRequest` ledger stores distinct appointment operations and logical project paths.
 Authentication and access checks run before replay. Successful replay runs before stale-version checks.
 The same key with a different request returns `409 IDEMPOTENCY_CONFLICT`.
 The replay window remains 24 hours.
-A missing or inaccessible supplied activity target returns 404 before upload or metadata replay.
+A missing or inaccessible appointment path returns 404 before asset creation or replay.
 Archive alone does not invalidate a saved successful response.
 
 ## Client workflow and verification boundary
@@ -146,8 +146,10 @@ Archive alone does not invalidate a saved successful response.
 The deal record sheet contains the Project workspace.
 It supports appointment filters and lifecycle controls, project files, per-file uploads, metadata edits, and file deletion.
 Upload progress distinguishes transfer from verification. PUT success is not READY.
-The client retains request keys and upload IDs during the workspace session for retry and reconciliation.
+The client retains request keys and asset IDs during the workspace session for retry and reconciliation.
 Storage requests use only the returned transfer headers, without CRM credentials.
+Repeat the original asset POST with the same key to refresh an expired transfer while its intent remains valid.
+Send `PATCH /assets/{assetId}` with `{ "uploadCompleted": true }` to queue verification, then poll the asset detail until `READY`.
 Use the [asset contract](./asset-api-contract.md) for transfer and worker behavior.
 
 Tests use disposable local PostgreSQL and storage fixtures.

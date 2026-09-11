@@ -1,8 +1,5 @@
 import type { Prisma } from "@crm/db";
-import {
-	findProjectAsset,
-	validateUploadActivity,
-} from "./asset-access.service";
+import { findProjectAsset, requireActiveProject } from "./asset-access.service";
 import type { AssetActor } from "./asset-actor";
 import { AssetError } from "./asset-error";
 import {
@@ -12,9 +9,14 @@ import {
 } from "./asset-metadata.contracts";
 import type { AssetMutations } from "./asset-mutation.service";
 import { assetResponse } from "./asset-responses";
+import type { AssetStorageService } from "./asset-storage.service";
+import { completeAssetUpload } from "./asset-upload-completion";
 
 export class AssetMetadataService {
-	constructor(private readonly mutations: AssetMutations) {}
+	constructor(
+		private readonly mutations: AssetMutations,
+		private readonly storage: AssetStorageService,
+	) {}
 
 	async updateAsset(
 		actor: AssetActor,
@@ -31,58 +33,52 @@ export class AssetMetadataService {
 				"Asset metadata is invalid.",
 			);
 		const input = parsed.data;
-		const { expectedVersion, ...changes } = input;
 		return this.mutations.run(
 			actor,
 			projectId,
 			"UPDATE_ASSET",
-			`/projects/${projectId}/assets/${assetId}`,
+			`/assets/${assetId}`,
 			key,
-			input as Prisma.InputJsonValue,
+			input,
 			assetMetadataResponseSchema,
-			async (tx) => {
+			async (tx, project) => {
 				const asset = await findProjectAsset(tx, projectId, assetId, actor);
 				if (!["READY", "UNVERIFIED"].includes(asset.status))
 					throw new AssetError(
 						409,
 						"ASSET_NOT_READY",
-						"The asset metadata cannot be changed in its current state.",
+						"The asset cannot be changed in its current state.",
 						{ state: asset.status },
 					);
-				if (asset.version !== expectedVersion)
+				if (
+					input.expectedVersion !== undefined &&
+					asset.version !== input.expectedVersion
+				)
 					throw new AssetError(
 						409,
 						"VERSION_CONFLICT",
 						"Read the current asset before updating it.",
 					);
-				if (
-					changes.activityId !== undefined &&
-					changes.activityId !== asset.activityId &&
-					changes.activityId !== null
-				)
-					await validateUploadActivity(tx, projectId, changes.activityId);
-				const data: Prisma.ArtifactUpdateInput = {
-					updatedAt: new Date(),
-					version: { increment: 1 },
-				};
-				if (changes.fileName !== undefined) data.fileName = changes.fileName;
-				if (changes.kind !== undefined) {
-					data.kind = changes.kind;
-					data.type = changes.kind;
+				if (input.uploadCompleted) {
+					requireActiveProject(project);
+					await completeAssetUpload(tx, this.storage, projectId, assetId);
 				}
-				if (changes.activityId !== undefined)
-					data.activityId = changes.activityId;
+				const data: Prisma.ArtifactUpdateInput = {};
+				if (input.fileName !== undefined) data.fileName = input.fileName;
+				if (input.kind !== undefined) {
+					data.kind = input.kind;
+					data.type = input.kind;
+				}
+				if (input.fileName === undefined && input.kind === undefined)
+					return { asset: assetResponse(asset) };
 				const updated = await tx.artifact.update({
 					where: { id: assetId },
-					data,
+					data: { ...data, updatedAt: new Date(), version: { increment: 1 } },
 					include: { deal: { select: { companyId: true } } },
 				});
 				return { asset: assetResponse(updated) };
 			},
-			{
-				assetId,
-				activityId: changes.activityId,
-			},
+			{ assetId },
 		);
 	}
 }

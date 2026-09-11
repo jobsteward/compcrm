@@ -11,14 +11,14 @@ import type { UploadItem } from "./upload-session";
 export function UploadDialog({
 	projectId,
 	open,
-	activityId,
+	appointmentId,
 	appointments,
 	onOpenChange,
 	onAssetsChanged,
 }: {
 	projectId: string;
 	open: boolean;
-	activityId: string | null;
+	appointmentId: string | null;
 	appointments: Appointment[];
 	onOpenChange: (open: boolean) => void;
 	onAssetsChanged: () => void;
@@ -28,18 +28,17 @@ export function UploadDialog({
 	const submit = (
 		files: File[],
 		kind: string,
-		selectedActivity: string | null,
+		selectedAppointment: string | null,
 	) => {
 		const next = files.map<UploadItem>((file) => ({
 			id: operationKey(),
 			file,
 			kind,
-			activityId: selectedActivity,
+			appointmentId: selectedAppointment,
 			createKey: operationKey(),
-			renewKey: operationKey(),
-			confirmKey: operationKey(),
-			cancelKey: operationKey(),
-			uploadId: null,
+			completeKey: operationKey(),
+			deleteKey: operationKey(),
+			transferred: false,
 			assetId: null,
 			transfer: null,
 			status: "QUEUED",
@@ -66,8 +65,8 @@ export function UploadDialog({
 		<>
 			{open ? (
 				<UploadForm
-					key={activityId ?? "none"}
-					activityId={activityId}
+					key={appointmentId ?? "none"}
+					appointmentId={appointmentId}
 					appointments={appointments}
 					onClose={() => onOpenChange(false)}
 					onSubmit={submit}

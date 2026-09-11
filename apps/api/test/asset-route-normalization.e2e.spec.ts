@@ -61,12 +61,12 @@ describe("normalized project resource routes", () => {
 		}
 	});
 
-	it("preserves customer project filters with mixed-case route names", async () => {
+	it("rejects the removed customer asset route", async () => {
 		await request(fixture.app.getHttpServer())
 			.get(
 				`/Customers/${fixture.customerId}/Assets?projectId=${fixture.projectId}`,
 			)
 			.set("x-asset-test-user", fixture.userId)
-			.expect(200);
+			.expect(404);
 	});
 });

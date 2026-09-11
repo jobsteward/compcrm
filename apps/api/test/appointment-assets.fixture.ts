@@ -51,6 +51,11 @@ export class AppointmentAssetsFixture {
 
 	async cleanup() {
 		try {
+			await inAssetTenant(() =>
+				scopedDb.assetApiRequest.deleteMany({
+					where: { actorKey: `user:${this.otherUserId}` },
+				}),
+			);
 			await this.assets.cleanup();
 		} finally {
 			await removeAssetTestMember(this.otherUserId);
@@ -95,34 +100,58 @@ export class AppointmentAssetsFixture {
 		actor = this.actor,
 		key = randomUUID(),
 	) {
-		return inAssetTenant(() =>
-			this.assets.service.createUpload(
-				actor,
-				this.assets.projectId,
-				this.assets.metadata(input),
-				key,
-			),
-		);
+		const { appointmentId, ...metadata } = input;
+		return inAssetTenant(async () => {
+			const result = appointmentId
+				? await this.assets.service.createAppointmentAsset(
+						actor,
+						appointmentId,
+						this.assets.metadata(metadata),
+						key,
+					)
+				: await this.assets.service.createProjectAsset(
+						actor,
+						this.assets.projectId,
+						this.assets.metadata(metadata),
+						key,
+					);
+			const upload = await scopedDb.assetUpload.findUniqueOrThrow({
+				where: { assetId: result.asset.id },
+			});
+			return { ...result, upload };
+		});
 	}
 
-	ready(input: Parameters<AssetsCoreFixture["ready"]>[0] = {}) {
-		return inAssetTenant(() => this.assets.ready(input));
+	async ready(
+		input: Parameters<AssetsCoreFixture["ready"]>[0] = {},
+		actor = this.actor,
+	) {
+		const created = await this.createUpload(input, actor);
+		const upload = await this.assets.put(
+			created.upload.id,
+			input.sizeBytes ?? 4,
+		);
+		await this.assets.service.updateAsset(
+			actor,
+			created.asset.id,
+			{ uploadCompleted: true },
+			randomUUID(),
+		);
+		await this.assets.worker.process();
+		const state = await this.assets.service.getAsset(actor, created.asset.id);
+		if (state.asset.status !== "READY")
+			throw new Error("The asset did not become ready.");
+		return { uploadId: upload.id, assetId: state.asset.id };
 	}
 
 	updateAsset(
 		assetId: string,
-		input: Parameters<AssetsCoreFixture["service"]["updateAsset"]>[3],
+		input: Parameters<AssetsCoreFixture["service"]["updateAsset"]>[2],
 		actor = this.actor,
 		key = randomUUID(),
 	) {
 		return inAssetTenant(() =>
-			this.assets.service.updateAsset(
-				actor,
-				this.assets.projectId,
-				assetId,
-				input,
-				key,
-			),
+			this.assets.service.updateAsset(actor, assetId, input, key),
 		);
 	}
 }

@@ -4,25 +4,15 @@ import { Button } from "@crm/ui/components/button";
 import { DialogFooter } from "@crm/ui/components/dialog";
 import { Field, FieldGroup, FieldLabel } from "@crm/ui/components/field";
 import { Input } from "@crm/ui/components/input";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@crm/ui/components/select";
 import { Spinner } from "@crm/ui/components/spinner";
-import type { Appointment } from "@/lib/project-assets/schemas";
 
 export type AssetEditorDraft = {
 	fileName: string;
 	kind: string;
-	activityId: string;
 };
 
 export function AssetEditorView({
 	draft,
-	appointments,
 	error,
 	latestVersion,
 	editable,
@@ -32,7 +22,6 @@ export function AssetEditorView({
 	onCancel,
 }: {
 	draft: AssetEditorDraft;
-	appointments: Appointment[];
 	error: string | null;
 	latestVersion?: number;
 	editable: boolean;
@@ -70,28 +59,6 @@ export function AssetEditorView({
 							disabled={!editable}
 							required
 						/>
-					</Field>
-					<Field>
-						<FieldLabel htmlFor="asset-appointment">
-							Collection appointment
-						</FieldLabel>
-						<Select
-							value={draft.activityId}
-							onValueChange={(activityId) => onChange({ activityId })}
-							disabled={!editable}
-						>
-							<SelectTrigger id="asset-appointment">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="none">No appointment</SelectItem>
-								{appointments.map((appointment) => (
-									<SelectItem key={appointment.id} value={appointment.id}>
-										{appointment.title}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
 					</Field>
 					{error ? (
 						<p className="text-destructive text-xs">

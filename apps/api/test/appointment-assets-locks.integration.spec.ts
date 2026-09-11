@@ -58,12 +58,8 @@ async function lockedProject(projectId: string, organizationId: string) {
 	};
 }
 
-async function race(order: "archive" | "relink") {
+async function associationRace(order: "archive" | "create") {
 	const target = await fixture.appointment({ title: "Target appointment" });
-	const source = await fixture.appointment({ title: "Source appointment" });
-	const { assetId } = await fixture.ready({
-		activityId: source.appointment.id,
-	});
 	const gate = await lockedProject(
 		fixture.assets.projectId,
 		ASSET_TEST_ORGANIZATION_ID,
@@ -71,44 +67,15 @@ async function race(order: "archive" | "relink") {
 	const operations: Promise<unknown>[] = [];
 	let released = false;
 	const archive = () => fixture.archive(target.appointment.id, fixture.actor);
-	const relink = () =>
-		fixture.updateAsset(
-			assetId,
-			{ expectedVersion: 1, activityId: target.appointment.id },
-			fixture.otherActor,
-		);
-	try {
-		operations.push(order === "archive" ? archive() : relink());
-		await gate.waitFor(1);
-		operations.push(order === "archive" ? relink() : archive());
-		await gate.waitFor(2);
-		await gate.release();
-		released = true;
-		return await Promise.allSettled(operations);
-	} finally {
-		if (!released) await gate.release();
-		await Promise.allSettled(operations);
-	}
-}
-
-async function uploadRace(order: "archive" | "upload") {
-	const target = await fixture.appointment({ title: "Upload target" });
-	const gate = await lockedProject(
-		fixture.assets.projectId,
-		ASSET_TEST_ORGANIZATION_ID,
-	);
-	const operations: Promise<unknown>[] = [];
-	let released = false;
-	const archive = () => fixture.archive(target.appointment.id, fixture.actor);
-	const upload = () =>
+	const create = () =>
 		fixture.createUpload(
-			{ activityId: target.appointment.id },
+			{ appointmentId: target.appointment.id },
 			fixture.otherActor,
 		);
 	try {
-		operations.push(order === "archive" ? archive() : upload());
+		operations.push(order === "archive" ? archive() : create());
 		await gate.waitFor(1);
-		operations.push(order === "archive" ? upload() : archive());
+		operations.push(order === "archive" ? create() : archive());
 		await gate.waitFor(2);
 		await gate.release();
 		released = true;
@@ -128,65 +95,47 @@ describe("appointment and asset project lock ordering", () => {
 	afterEach(async () => fixture.cleanup());
 	afterAll(async () => rawDb.$disconnect());
 
-	it("serializes archive before a different actor's asset relink", async () => {
-		const results = await race("archive");
+	it("rejects an appointment asset association queued behind archive", async () => {
+		const { results } = await associationRace("archive");
 		expect(results[0]?.status).toBe("fulfilled");
 		expect(results[1]?.status).toBe("rejected");
 		if (results[1]?.status === "rejected")
 			expect(results[1].reason).toMatchObject({ code: "APPOINTMENT_ARCHIVED" });
 	});
 
-	it("serializes asset relink before archive and preserves the accepted reference", async () => {
-		const results = await race("relink");
+	it("preserves an accepted same-project association before archive", async () => {
+		const { target, results } = await associationRace("create");
 		expect(results.every((result) => result.status === "fulfilled")).toBe(true);
-		const target = await scopedDb.activity.findFirstOrThrow({
-			where: {
-				dealId: fixture.assets.projectId,
-				subject: "Target appointment",
-			},
-		});
-		const asset = await scopedDb.artifact.findFirstOrThrow({
-			where: { dealId: fixture.assets.projectId },
-		});
-		expect(target.archivedAt).not.toBeNull();
-		expect(asset.activityId).not.toBeNull();
-		expect(asset.version).toBe(2);
-	});
-
-	it("rejects an upload queued behind archive for a different actor", async () => {
-		const { results } = await uploadRace("archive");
-		expect(results[0]?.status).toBe("fulfilled");
-		expect(results[1]?.status).toBe("rejected");
-		if (results[1]?.status === "rejected")
-			expect(results[1].reason).toMatchObject({ code: "APPOINTMENT_ARCHIVED" });
-	});
-
-	it("allows an upload queued first to finish after archive", async () => {
-		const { target, results } = await uploadRace("upload");
-		expect(results.every((result) => result.status === "fulfilled")).toBe(true);
-		const uploadResult = results[0];
-		if (uploadResult?.status !== "fulfilled")
-			throw new Error("Upload did not start.");
-		const upload = uploadResult.value as Awaited<
+		const created = results[0];
+		if (created?.status !== "fulfilled")
+			throw new Error("Appointment asset creation did not start.");
+		const upload = created.value as Awaited<
 			ReturnType<AppointmentAssetsFixture["createUpload"]>
 		>;
+		expect(upload.asset).toMatchObject({
+			projectId: fixture.assets.projectId,
+			appointmentId: target.appointment.id,
+			status: "UNVERIFIED",
+		});
 		await fixture.assets.put(upload.upload.id);
-		await fixture.assets.service.confirmUpload(
+		await fixture.updateAsset(
+			upload.asset.id,
+			{ uploadCompleted: true },
 			fixture.otherActor,
-			fixture.assets.projectId,
-			upload.upload.id,
-			crypto.randomUUID(),
 		);
 		await fixture.assets.worker.process();
 		expect(
 			(
-				await fixture.assets.service.getUpload(
+				await fixture.assets.service.getAsset(
 					fixture.otherActor,
-					fixture.assets.projectId,
-					upload.upload.id,
+					upload.asset.id,
 				)
-			).upload.status,
-		).toBe("READY");
+			).asset,
+		).toMatchObject({
+			projectId: fixture.assets.projectId,
+			appointmentId: target.appointment.id,
+			status: "READY",
+		});
 		expect(
 			(
 				await scopedDb.activity.findUnique({
