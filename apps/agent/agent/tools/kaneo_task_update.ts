@@ -4,7 +4,7 @@ import { updateTask } from "../lib/kaneo-writes";
 
 export default defineTool({
 	description:
-		"Update a task: its title, description, status, priority, assignee or due date. Pass only the fields that change. Free.",
+		"Update a Kaneo task: its title, description, status, priority, assignee or due date. Pass only the fields that change. Free.",
 	inputSchema: z.object({
 		taskId: z.string().describe("The id of the task to update."),
 		title: z.string().min(1).max(500).optional(),

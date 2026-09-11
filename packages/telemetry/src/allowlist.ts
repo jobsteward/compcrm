@@ -143,7 +143,7 @@ export const AGENT_TOOLS = [
 	"task_create",
 	"task_list",
 	"task_read",
-	"task_update",
+	"kaneo_task_update",
 	"write_brief",
 	"write_workspace_profile",
 ] as const;
