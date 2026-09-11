@@ -18,7 +18,6 @@ import { ASSET_TEST_ORGANIZATION_ID } from "./assets-tenant.fixture";
 let fixture: AppointmentAssetsFixture;
 
 async function lockedProject(projectId: string, organizationId: string) {
-	const sql = new Bun.SQL(process.env.TEST_DATABASE_URL ?? "");
 	let releaseLock!: () => void;
 	const released = new Promise<void>((resolve) => {
 		releaseLock = resolve;
@@ -27,9 +26,9 @@ async function lockedProject(projectId: string, organizationId: string) {
 	const lockAcquired = new Promise<void>((resolve) => {
 		acquired = resolve;
 	});
-	const transaction = sql.begin(async (tx) => {
-		await tx`SELECT set_config('app.current_organization_id', ${organizationId}, true)`;
-		await tx`SELECT "id" FROM "deal" WHERE "id" = ${projectId} FOR UPDATE`;
+	const transaction = rawDb.$transaction(async (tx) => {
+		await tx.$executeRaw`SELECT set_config('app.current_organization_id', ${organizationId}, true)`;
+		await tx.$queryRaw`SELECT "id" FROM "deal" WHERE "id" = ${projectId} FOR UPDATE`;
 		acquired();
 		await released;
 	});
@@ -38,7 +37,7 @@ async function lockedProject(projectId: string, organizationId: string) {
 	return {
 		async waitFor(waiters: number) {
 			for (let attempt = 0; attempt < 200; attempt++) {
-				const result = await sql<{ count: number }[]>`
+				const result = await rawDb.$queryRaw<{ count: number }[]>`
 					SELECT count(*)::int AS count
 					FROM pg_stat_activity
 					WHERE pid <> pg_backend_pid()
@@ -55,7 +54,6 @@ async function lockedProject(projectId: string, organizationId: string) {
 			open = false;
 			releaseLock();
 			await transaction;
-			await sql.end();
 		},
 	};
 }
